@@ -12,24 +12,17 @@
  * @brief Class defining basic operations for handling Listbuilder UI elements
  */
 
-import('lib.pkp.classes.controllers.grid.GridHandler');
+// import base class
+import('lib.pkp.classes.controllers.ElementListHandler');
+
+// import listbuilder-specific classes
 import('lib.pkp.classes.controllers.listbuilder.ListbuilderGridRow');
 
 define('LISTBUILDER_SOURCE_TYPE_TEXT', 0);
 define('LISTBUILDER_SOURCE_TYPE_SELECT', 1);
 define('LISTBUILDER_SOURCE_TYPE_BOUND', 2);
 
-// FIXME: Rather than inheriting from grid handler, common base
-// functionality might better be factored into a common base handler
-// class and then both, GridHandler and ListbuilderHandler should
-// inherit from the common base class. The shared concept of grids
-// and list builders is that both seem to work with element lists. Maybe
-// ElementListHandler would be a good name then for a common base
-// class? I'm not a 100% sure about this but it'll become obvious
-// once you try. If there's considerable amounts of code in both
-// the base class and the re-factored grid handler then you know
-// you're on the right track.
-class ListbuilderHandler extends GridHandler {
+class ListbuilderHandler extends ElementListHandler {
 	/** @var string The label associated with the primary source to be added to the list **/
 	var $_sourceTitle;
 
@@ -52,7 +45,7 @@ class ListbuilderHandler extends GridHandler {
 	 * Constructor.
 	 */
 	function ListbuilderHandler() {
-		parent::GridHandler();
+		parent::ElementListHandler();
 	}
 
 	/**
@@ -69,9 +62,6 @@ class ListbuilderHandler extends GridHandler {
 
 	/**
 	 * Set the title for the source (left side of the listbuilder)
-	 * FIXME: AFAIK doxygen needs the $ to correctly parse variable names
-	 *  I've corrected this throughout the code but leave this as a marker
-	 *  for you.
 	 * @param $sourceTitle string
 	 */
 	function setSourceTitle($sourceTitle) {
