@@ -129,9 +129,9 @@
 <div id="main">
 {include file="common/navbar.tpl"}
 
-{include file="common/breadcrumbs.tpl"}
+{if !$hideBreadcrumbOnHomepage}{include file="common/breadcrumbs.tpl"}{/if}
 
-<h2>{$pageTitleTranslated}</h2>
+{if !$hideTitleOnHomepage} <h2>{$pageTitleTranslated}</h2> {/if}
 
 {if $pageSubtitle && !$pageSubtitleTranslated}{translate|assign:"pageSubtitleTranslated" key=$pageSubtitle}{/if}
 {if $pageSubtitleTranslated}
