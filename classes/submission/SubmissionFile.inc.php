@@ -180,7 +180,8 @@ class SubmissionFile extends DataObject {
 	 * @return int
 	 */
 	function getType() {
-		return $this->getData('type');
+		if (Config::getVar('debug', 'deprecation_warnings')) trigger_error('Deprecated function.');
+		return $this->getUseCase();
 	}
 
 	/**
@@ -188,7 +189,24 @@ class SubmissionFile extends DataObject {
 	 * @param $type int
 	 */
 	function setType($type) {
-		return $this->setData('type', $type);
+		if (Config::getVar('debug', 'deprecation_warnings')) trigger_error('Deprecated function.');
+		return $this->setUseCase($type);
+	}
+
+	/**
+	 * Get use case of the file.
+	 * @return int
+	 */
+	function getUseCase() {
+		return $this->getData('useCase');
+	}
+
+	/**
+	 * Set use case of the file.
+	 * @param $useCase int
+	 */
+	function setUseCase($useCase) {
+		return $this->setData('useCase', $useCase);
 	}
 
 	/**
