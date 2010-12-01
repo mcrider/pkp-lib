@@ -13,10 +13,8 @@
  * @brief Operations for retrieving and modifying Session objects.
  */
 
-// $Id$
 
-
-import('session.Session');
+import('lib.pkp.classes.session.Session');
 
 class SessionDAO extends DAO {
 	/**
@@ -43,7 +41,6 @@ class SessionDAO extends DAO {
 			$session->setSecondsLastUsed($row['last_used']);
 			$session->setRemember($row['remember']);
 			$session->setSessionData($row['data']);
-
 		}
 
 		$result->Close();

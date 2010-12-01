@@ -13,12 +13,12 @@
  * @brief Tests for the PKPRouter class.
  */
 
-import('tests.PKPTestCase');
-import('core.PKPRouter');
-import('core.PKPRequest');
-import('plugins.HookRegistry'); // This imports a mock HookRegistry implementation.
-import('core.PKPApplication');
-import('db.DAORegistry');
+import('lib.pkp.tests.PKPTestCase');
+import('lib.pkp.classes.core.PKPRouter');
+import('lib.pkp.classes.core.PKPRequest');
+import('lib.pkp.classes.plugins.HookRegistry'); // This imports a mock HookRegistry implementation.
+import('lib.pkp.classes.core.PKPApplication');
+import('lib.pkp.classes.db.DAORegistry');
 
 class PKPRouterTest extends PKPTestCase {
 	const
@@ -195,9 +195,9 @@ class PKPRouterTest extends PKPTestCase {
 		$mockDAO = $this->getMock('SomeContextDAO', array('getSomeContextByPath'));
 		DAORegistry::registerDAO('SomeContextDAO', $mockDAO);
 
-	    // Set up the mock DAO get-by-path method which
-	    // should be called with the context path from
-	    // the path info.
+		// Set up the mock DAO get-by-path method which
+		// should be called with the context path from
+		// the path info.
 		$expectedResult = $this->getMock('SomeContext');
 		$mockDAO->expects($this->once())
 		        ->method('getSomeContextByPath')
@@ -233,7 +233,7 @@ class PKPRouterTest extends PKPTestCase {
 	 */
 	public function testGetIndexUrl() {
 		$this->_setUpMockEnvironment();
-		$this->setTestConfiguration('request1', 'classes/core/config', false); // no restful URLs
+		$this->setTestConfiguration('request1', 'classes/core/config'); // no restful URLs
 		$_SERVER = array(
 			'HOSTNAME' => 'mydomain.org',
 			'SCRIPT_NAME' => '/base/index.php'
@@ -269,7 +269,7 @@ class PKPRouterTest extends PKPTestCase {
 	 */
 	public function testGetIndexUrlRestful() {
 		$this->_setUpMockEnvironment();
-		$this->setTestConfiguration('request2', 'classes/core/config', false); // restful URLs
+		$this->setTestConfiguration('request2', 'classes/core/config'); // restful URLs
 		$_SERVER = array(
 			'HOSTNAME' => 'mydomain.org',
 			'SCRIPT_NAME' => '/base/index.php'
@@ -332,10 +332,13 @@ class PKPRouterTest extends PKPTestCase {
 	protected function _setUpMockDAOs($firstContextPath = 'current-context1', $secondContextPath = 'current-context2', $firstContextIsNull = false, $secondContextIsNull = false) {
 		$mockFirstContextDAO = $this->getMock('FirstContextDAO', array('getFirstContextByPath'));
 		if (!$firstContextIsNull) {
-			$firstContextInstance = $this->getMock('FirstContext', array('getPath'));
+			$firstContextInstance = $this->getMock('FirstContext', array('getPath', 'getSetting'));
 			$firstContextInstance->expects($this->any())
 			                     ->method('getPath')
 			                     ->will($this->returnValue($firstContextPath));
+			$firstContextInstance->expects($this->any())
+			                     ->method('getSetting')
+			                     ->will($this->returnValue(null));
 			$mockFirstContextDAO->expects($this->any())
 			                    ->method('getFirstContextByPath')
 			                    ->with($firstContextPath)

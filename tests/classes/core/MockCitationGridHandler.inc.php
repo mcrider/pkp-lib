@@ -12,7 +12,12 @@
  * @brief Mock implementation of the CitationGridHandler class for the PKPComponentRouterTest
  */
 
-import('classes.handler.PKPHandler');
+import('lib.pkp.classes.handler.PKPHandler');
+
+// Define a test role.
+if (!defined('ROLE_ID_AUTHOR')) {
+	define('ROLE_ID_AUTHOR', 0x00010000);
+}
 
 class CitationGridHandler extends PKPHandler {
 	private $_fetchArgs;
@@ -21,9 +26,16 @@ class CitationGridHandler extends PKPHandler {
 		$this->_checks = array();
 		// Make sure that the parent constructor
 		// will not be called.
+
+		// Assign operations to roles.
+		$this->addRoleAssignment(ROLE_ID_AUTHOR, 'fetch');
 	}
 
-	function fetch() {
+	function authorize() {
+		return true;
+	}
+
+	function fetchGrid() {
 		// Log the call to the fetch method
 		assert(is_null($this->_fetchArgs));
 		$this->_fetchArgs =& func_get_args();
@@ -33,17 +45,6 @@ class CitationGridHandler extends PKPHandler {
 		// Return the arguments that were passed
 		// to the fetch call (if any)
 		return $this->_fetchArgs;
-	}
-
-	function privateMethod() {
-		// This method is not in the remote operations
-		// list and should therefore not be granted remote
-		// access.
-		assert(false);
-	}
-
-	function getRemoteOperations() {
-		return array('fetch');
 	}
 }
 ?>

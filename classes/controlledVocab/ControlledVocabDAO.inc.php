@@ -13,10 +13,8 @@
  * @brief Operations for retrieving and modifying ControlledVocab objects.
  */
 
-//$Id$
 
-
-import('controlledVocab.ControlledVocab');
+import('lib.pkp.classes.controlledVocab.ControlledVocab');
 
 class ControlledVocabDAO extends DAO {
 	/**
@@ -142,10 +140,9 @@ class ControlledVocabDAO extends DAO {
 	function deleteObjectById($controlledVocabId) {
 		$params = array((int) $controlledVocabId);
 		$controlledVocabEntryDao =& DAORegistry::getDAO('ControlledVocabEntryDAO');
-		$controlledVocabEntries =& $controlledVocabEntryDao->getControlledVocabEntries($controlledVocabId);
-		while ($controlledVocabEntry =& $controlledVocabEntries->next()) {
-			$controlledVocabEntryDao->deleteObject($controlledVocabEntry);
-			unset($controlledVocabEntry);
+		$controlledVocabEntries =& $this->enumerate($controlledVocabId);
+		foreach ($controlledVocabEntries as $controlledVocabEntryId => $controlledVocabEntryName) {
+			$controlledVocabEntryDao->deleteObjectById($controlledVocabEntryId);
 		}
 		return $this->update('DELETE FROM controlled_vocabs WHERE controlled_vocab_id = ?', $params);
 	}

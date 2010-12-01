@@ -17,8 +17,6 @@
  * @brief Basic class describing users existing in the system.
  */
 
-// $Id$
-
 
 class PKPUser extends DataObject {
 
@@ -225,18 +223,27 @@ class PKPUser extends DataObject {
 
 	/**
 	 * Get affiliation (position, institution, etc.).
+	 * @param $locale string
 	 * @return string
 	 */
-	function getAffiliation() {
-		return $this->getData('affiliation');
+	function getAffiliation($locale) {
+		return $this->getData('affiliation', $locale);
 	}
 
 	/**
 	 * Set affiliation.
 	 * @param $affiliation string
+	 * @param $locale string
 	 */
-	function setAffiliation($affiliation) {
-		return $this->setData('affiliation', $affiliation);
+	function setAffiliation($affiliation, $locale) {
+		return $this->setData('affiliation', $affiliation, $locale);
+	}
+
+	/**
+	 * Get localized user affiliation.
+	 */
+	function getLocalizedAffiliation() {
+		return $this->getLocalizedData('affiliation');
 	}
 
 	/**
@@ -320,6 +327,22 @@ class PKPUser extends DataObject {
 	}
 
 	/**
+	 * Get billing address.
+	 * @return string
+	 */
+	function getBillingAddress() {
+		return $this->getData('billingAddress');
+	}
+
+	/**
+	 * Set billing address.
+	 * @param $billingAddress string
+	 */
+	function setBillingAddress($billingAddress) {
+		return $this->setData('billingAddress', $billingAddress);
+	}
+
+	/**
 	 * Get country.
 	 * @return string
 	 */
@@ -365,16 +388,9 @@ class PKPUser extends DataObject {
 		return $this->setData('biography', $biography, $locale);
 	}
 
-	/**
-	 * Get localized user interests.
-	 */
-	function getLocalizedInterests() {
-		return $this->getLocalizedData('interests');
-	}
-
 	function getUserInterests() {
 		if (Config::getVar('debug', 'deprecation_warnings')) trigger_error('Deprecated function.');
-		return $this->getLocalizedInterests();
+		return $this->getInterests();
 	}
 
 	/**
@@ -382,8 +398,9 @@ class PKPUser extends DataObject {
 	 * @param $locale string
 	 * @return string
 	 */
-	function getInterests($locale) {
-		return $this->getData('interests', $locale);
+	function getInterests() {
+		$interestDao =& DAORegistry::getDAO('InterestDAO');
+		return implode(", ", $interestDao->getInterests($this->getId()));
 	}
 
 	/**
@@ -391,8 +408,9 @@ class PKPUser extends DataObject {
 	 * @param $interests string
 	 * @param $locale string
 	 */
-	function setInterests($interests, $locale) {
-		return $this->setData('interests', $interests, $locale);
+	function setInterests($interests) {
+		$interestDao =& DAORegistry::getDAO('InterestDAO');
+		$interestDao->insertInterests(explode(",", $interests), $this->getId(), true);
 	}
 
 	/**
@@ -585,9 +603,9 @@ class PKPUser extends DataObject {
 
 	function getContactSignature() {
 		$signature = $this->getFullName();
-		if ($this->getAffiliation()) $signature .= "\n" . $this->getAffiliation();
-		if ($this->getPhone()) $signature .= "\n" . Locale::translate('user.phone') . ' ' . $this->getPhone();
-		if ($this->getFax()) $signature .= "\n" . Locale::translate('user.fax') . ' ' . $this->getFax();
+		if ($a = $this->getLocalizedAffiliation()) $signature .= "\n" . $a;
+		if ($p = $this->getPhone()) $signature .= "\n" . Locale::translate('user.phone') . ' ' . $p;
+		if ($f = $this->getFax()) $signature .= "\n" . Locale::translate('user.fax') . ' ' . $f;
 		$signature .= "\n" . $this->getEmail();
 		return $signature;
 	}

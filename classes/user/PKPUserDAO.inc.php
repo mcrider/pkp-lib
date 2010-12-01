@@ -160,12 +160,12 @@ class PKPUserDAO extends DAO {
 		$user->setInitials($row['initials']);
 		$user->setLastName($row['last_name']);
 		$user->setGender($row['gender']);
-		$user->setAffiliation($row['affiliation']);
 		$user->setEmail($row['email']);
 		$user->setUrl($row['url']);
 		$user->setPhone($row['phone']);
 		$user->setFax($row['fax']);
 		$user->setMailingAddress($row['mailing_address']);
+		$user->setBillingAddress($row['billing_address']);
 		$user->setCountry($row['country']);
 		$user->setLocales(isset($row['locales']) && !empty($row['locales']) ? explode(':', $row['locales']) : array());
 		$user->setDateLastEmail($this->datetimeFromDB($row['date_last_email']));
@@ -196,7 +196,7 @@ class PKPUserDAO extends DAO {
 		}
 		$this->update(
 			sprintf('INSERT INTO users
-				(username, password, salutation, first_name, middle_name, initials, last_name, gender, affiliation, email, url, phone, fax, mailing_address, country, locales, date_last_email, date_registered, date_validated, date_last_login, must_change_password, disabled, disabled_reason, auth_id, auth_str)
+				(username, password, salutation, first_name, middle_name, initials, last_name, gender, email, url, phone, fax, mailing_address, billing_address, country, locales, date_last_email, date_registered, date_validated, date_last_login, must_change_password, disabled, disabled_reason, auth_id, auth_str)
 				VALUES
 				(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, %s, %s, %s, %s, ?, ?, ?, ?, ?)',
 				$this->datetimeToDB($user->getDateLastEmail()), $this->datetimeToDB($user->getDateRegistered()), $this->datetimeToDB($user->getDateValidated()), $this->datetimeToDB($user->getDateLastLogin())),
@@ -209,12 +209,12 @@ class PKPUserDAO extends DAO {
 				$user->getInitials(),
 				$user->getLastName(),
 				$user->getGender(),
-				$user->getAffiliation(),
 				$user->getEmail(),
 				$user->getUrl(),
 				$user->getPhone(),
 				$user->getFax(),
 				$user->getMailingAddress(),
+				$user->getBillingAddress(),
 				$user->getCountry(),
 				join(':', $user->getLocales()),
 				$user->getMustChangePassword() ? 1 : 0,
@@ -231,7 +231,7 @@ class PKPUserDAO extends DAO {
 	}
 
 	function getLocaleFieldNames() {
-		return array('biography', 'signature', 'interests', 'gossip');
+		return array('biography', 'signature', 'gossip', 'affiliation');
 	}
 
 	function updateLocaleFields(&$user) {
@@ -261,12 +261,12 @@ class PKPUserDAO extends DAO {
 					initials = ?,
 					last_name = ?,
 					gender = ?,
-					affiliation = ?,
 					email = ?,
 					url = ?,
 					phone = ?,
 					fax = ?,
 					mailing_address = ?,
+					billing_address = ?,
 					country = ?,
 					locales = ?,
 					date_last_email = %s,
@@ -288,12 +288,12 @@ class PKPUserDAO extends DAO {
 				$user->getInitials(),
 				$user->getLastName(),
 				$user->getGender(),
-				$user->getAffiliation(),
 				$user->getEmail(),
 				$user->getUrl(),
 				$user->getPhone(),
 				$user->getFax(),
 				$user->getMailingAddress(),
+				$user->getBillingAddress(),
 				$user->getCountry(),
 				join(':', $user->getLocales()),
 				$user->getMustChangePassword() ? 1 : 0,
@@ -392,7 +392,7 @@ class PKPUserDAO extends DAO {
 	 */
 
 	function &getUsersByField($field = USER_FIELD_NONE, $match = null, $value = null, $allowDisabled = true, $dbResultRange = null, $sortBy = null, $sortDirection = SORT_DIRECTION_ASC) {
-		$sql = 'SELECT * FROM users u';
+		$sql = 'SELECT DISTINCT * FROM users u';
 		switch ($field) {
 			case USER_FIELD_USERID:
 				$sql .= ' WHERE u.user_id = ?';
@@ -407,7 +407,9 @@ class PKPUserDAO extends DAO {
 				$var = "$value%";
 				break;
 			case USER_FIELD_INTERESTS:
-				$sql .= ', user_settings us WHERE us.user_id = u.user_id AND us.setting_name = \'interests\' AND LOWER(us.setting_value) ' . ($match == 'is' ? '=' : 'LIKE') . ' LOWER(?)';
+				$sql .=', controlled_vocabs cv, controlled_vocab_entries cve, controlled_vocab_entry_settings cves
+					WHERE cv.assoc_type = ' . ASSOC_TYPE_USER . ' AND cv.symbolic = \'interest\' AND cv.assoc_id = u.user_id AND cve.controlled_vocab_id = cv.controlled_vocab_id
+					AND cves.controlled_vocab_entry_id = cve.controlled_vocab_entry_id AND LOWER(cves.setting_value) ' . ($match == 'is' ? '=' : 'LIKE') . ' LOWER(?)';
 				$var = $match == 'is' ? $value : "%$value%";
 				break;
 			case USER_FIELD_EMAIL:

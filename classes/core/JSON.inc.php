@@ -13,7 +13,6 @@
  *
  */
 
-// $Id$
 
 class JSON {
 	/** @var $status string The status of an event (e.g. false if form validation fails) */
@@ -35,6 +34,8 @@ class JSON {
 	* Constructor.
 	* @param $status string The status of an event (e.g. false if form validation fails)
 	* @param $content string The message to be delivered back to the calling script
+	* @param $elementId string The DOM element to be replaced
+	* @param $additionalAttributes array additional data to be returned.
 	*/
 	function JSON($status = 'true', $content = '', $isScript = 'false', $elementId = '0', $additionalAttributes = null) {
 		$this->status = $status;
@@ -164,7 +165,7 @@ class JSON {
 				else {
 					return $a;
 				}
-		    }
+			}
 			$isList = true;
 			for ($i = 0, reset($a); $i < count($a); $i++, next($a)) {
 				if (key($a) !== $i) {

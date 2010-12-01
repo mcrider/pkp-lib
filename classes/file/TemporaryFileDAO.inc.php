@@ -16,7 +16,7 @@
 // $Id$
 
 
-import('file.TemporaryFile');
+import('lib.pkp.classes.file.TemporaryFile');
 
 class TemporaryFileDAO extends DAO {
 	/**
@@ -28,7 +28,7 @@ class TemporaryFileDAO extends DAO {
 	function &getTemporaryFile($fileId, $userId) {
 		$result =& $this->retrieveLimit(
 			'SELECT t.* FROM temporary_files t WHERE t.file_id = ? and t.user_id = ?',
-			array($fileId, $userId),
+			array((int) $fileId, (int) $userId),
 			1
 		);
 

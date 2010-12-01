@@ -12,8 +12,6 @@
  * @brief Class dispatching HTTP requests to handlers.
  */
 
-// $Id$
-
 
 class Dispatcher {
 	/** @var PKPApplication */
@@ -95,13 +93,14 @@ class Dispatcher {
 
 			// Does this router support the current request?
 			if ($routerCandidate->supports($request)) {
-				// Inject router into request
+				// Inject router and dispatcher into request
 				$request->setRouter($routerCandidate);
-				$router =& $routerCandidate;
-				$this->_router =& $router;
+				$request->setDispatcher($this);
 
 				// We've found our router and can go on
 				// to handle the request.
+				$router =& $routerCandidate;
+				$this->_router =& $router;
 				break;
 			}
 		}
@@ -125,7 +124,7 @@ class Dispatcher {
 		}
 
 		Locale::initialize();
-		PluginRegistry::loadCategory('generic');
+		PluginRegistry::loadCategory('generic', true);
 
 		$router->route($request);
 	}
@@ -164,19 +163,18 @@ class Dispatcher {
 	 */
 	function &_instantiateRouter($routerName, $shortcut) {
 		if (!isset($this->_routerInstances[$shortcut])) {
-			$routerParts = explode('.', $routerName);
-
-			// Routers must belong to the core package
+			// Routers must belong to the classes.core or lib.pkp.classes.core package
 			// NB: This prevents code inclusion attacks.
-			if (count($routerParts) != 2 || $routerParts[0] != 'core') {
-				fatalError('Routers must belong to the core package.');
-			}
-			$routerClass = $routerParts[1];
+			$allowedRouterPackages = array(
+				'classes.core',
+				'lib.pkp.classes.core'
+			);
 
 			// Instantiate the router
-			import($routerName);
-			$router = new $routerClass();
-			assert(is_a($router, 'PKPRouter'));
+			$router =& instantiate($routerName, 'PKPRouter', $allowedRouterPackages);
+			if (!is_object($router)) {
+				fatalError('Cannot instantiate requested router. Routers must belong to the core package and be of type "PKPRouter".');
+			}
 			$router->setApplication($this->_application);
 			$router->setDispatcher($this);
 

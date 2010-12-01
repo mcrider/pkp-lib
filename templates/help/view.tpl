@@ -44,3 +44,4 @@
 </div>
 
 {include file="help/footer.tpl"}
+

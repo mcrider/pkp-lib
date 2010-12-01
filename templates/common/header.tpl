@@ -5,7 +5,6 @@
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
  *
  * Common site header.
- *
  *}
 {strip}
 {if !$pageTitleTranslated}{translate|assign:"pageTitleTranslated" key=$pageTitle}{/if}
@@ -14,7 +13,7 @@
 {elseif !$pageCrumbTitleTranslated}
 	{assign var="pageCrumbTitleTranslated" value=$pageTitleTranslated}
 {/if}
-{/strip}<?xml version="1.0" encoding="UTF-8"?>
+{/strip}
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
 	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -26,6 +25,7 @@
 	<meta name="generator" content="{$applicationName} {$currentVersionString|escape}" />
 	{$metaCustomHeaders}
 	{if $displayFavicon}<link rel="icon" href="{$faviconDir}/{$displayFavicon.uploadName|escape:"url"}" />{/if}
+	<link rel="stylesheet" href="{$baseUrl}/lib/pkp/styles/pkp.css" type="text/css" />
 	<link rel="stylesheet" href="{$baseUrl}/lib/pkp/styles/common.css" type="text/css" />
 	<link rel="stylesheet" href="{$baseUrl}/styles/common.css" type="text/css" />
 	
@@ -35,6 +35,23 @@
 		google.load("jquery", "1");
 		google.load("jqueryui", "1");
 	</script>
+	{else}
+	<script type="text/javascript" src="{$baseUrl}/lib/pkp/js/lib/jquery/jquery.min.js"></script>
+	<script type="text/javascript" src="{$baseUrl}/lib/pkp/js/lib/jquery/plugins/jqueryUi.min.js"></script>
+	{/if}
+
+	<!-- Base Jquery -->
+	{if $allowCDN}<script type="text/javascript" src="http://www.google.com/jsapi"></script>
+	<script type="text/javascript">{literal}
+		// Provide a local fallback if the CDN cannot be reached
+		if (typeof google == 'undefined') {
+			document.write(unescape("%3Cscript src='{/literal}{$baseUrl}{literal}/lib/pkp/js/lib/jquery/jquery.min.js' type='text/javascript'%3E%3C/script%3E"));
+			document.write(unescape("%3Cscript src='{/literal}{$baseUrl}{literal}/lib/pkp/js/lib/jquery/plugins/jqueryUi.min.js' type='text/javascript'%3E%3C/script%3E"));
+		} else {
+			google.load("jquery", "{/literal}{$smarty.const.CDN_JQUERY_VERSION}{literal}");
+			google.load("jqueryui", "{/literal}{$smarty.const.CDN_JQUERY_UI_VERSION}{literal}");
+		}
+	{/literal}</script>
 	{else}
 	<script type="text/javascript" src="{$baseUrl}/lib/pkp/js/lib/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="{$baseUrl}/lib/pkp/js/lib/jquery/plugins/jqueryUi.min.js"></script>
@@ -52,6 +69,39 @@
 	{/foreach}
 
 	<script type="text/javascript" src="{$baseUrl}/lib/pkp/js/general.js"></script>
+	<script type="text/javascript" src="{$baseUrl}/lib/pkp/js/tag-it.js"></script>
+	<!-- Add javascript required for font sizer -->
+	<script type="text/javascript" src="{$baseUrl}/lib/pkp/js/jquery.cookie.js"></script>
+	<script type="text/javascript" src="{$baseUrl}/lib/pkp/js/fontController.js" ></script>
+	<script type="text/javascript">{literal}
+		$(function(){
+			fontSize("#sizer", "body", 9, 16, 32, "{/literal}{$basePath|escape:"javascript"}{literal}"); // Initialize the font sizer
+		});
+	{/literal}</script>
+
+	<script type="text/javascript">
+        // initialise plugins
+		{literal}
+        $(function(){
+        	{/literal}{if $validateId}{literal}
+			jqueryValidatorI18n("{/literal}{$baseUrl}{literal}", "{/literal}{$currentLocale}{literal}"); // include the appropriate validation localization
+			$("form[name={/literal}{$validateId}{literal}]").validate({
+				errorClass: "error",
+				highlight: function(element, errorClass) {
+					$(element).parent().parent().addClass(errorClass);
+				},
+				unhighlight: function(element, errorClass) {
+					$(element).parent().parent().removeClass(errorClass);
+				}
+			});
+			{/literal}{/if}{literal}
+			$(".tagit").live('click', function() {
+				$(this).find('input').focus();
+			});
+		});
+		{/literal}
+	</script>
+
 	{$additionalHeadData}
 </head>
 <body>
@@ -69,8 +119,6 @@
 	{$displayPageHeaderTitle}
 {elseif $alternatePageHeader}
 	{$alternatePageHeader}
-{elseif $customLogoTemplate}
-	{include file=$customLogoTemplate}
 {elseif $siteTitle}
 	{$siteTitle}
 {else}
@@ -110,3 +158,4 @@
 {/if}
 
 <div id="content">
+

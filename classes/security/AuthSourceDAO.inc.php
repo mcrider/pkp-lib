@@ -13,10 +13,8 @@
  * @brief Operations for retrieving and modifying AuthSource objects.
  */
 
-// $Id$
 
-
-import('security.AuthSource');
+import('lib.pkp.classes.security.AuthSource');
 
 class AuthSourceDAO extends DAO {
 	var $plugins;

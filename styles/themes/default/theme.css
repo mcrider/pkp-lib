@@ -13,6 +13,8 @@
 
 @import url("wufoo.css");
 
+@import url("pnotify.css");
+
 /* @end */
 
 /* @group Structure Overrides */
@@ -77,6 +79,7 @@ div.grid div.wrapper {
 div.grid table {
 	background-color: #fff;
 	border: 1px solid #b6c9d5;
+	border-collapse: collapse; /* Required for IE7 to remove table borders. */
 }
 
 div.grid tr.alternate_row, div.grid tr.alternate_row .row_file {
@@ -100,6 +103,35 @@ div.grid tr.category td {
 a.task:hover
 {
 	background-color: #efefef;
+}
+
+.ui-widget {
+	font-size: .9em;
+}
+
+
+/* @group More/Less Detail Toggle */
+
+.toggleDetailContainer {
+	margin: 20px 0 20px 0;
+}
+
+.toggleDetail {
+    display: block;
+	text-indent: -99999px;
+	overflow: hidden;
+	background-repeat: no-repeat;
+	width: 16px;
+	height: 16px;
+	background-image: url(../../images/ui-icons_222222_256x240.png);
+}
+
+.moreDetail {
+	background-position: -48px -192px;
+}
+
+.lessDetail {
+	background-position: -64px -192px;
 }
 
 /* @end */

@@ -12,39 +12,48 @@
  *
  * @class Citation
  * @ingroup citation
- * @see CitationParserService
  * @see MetadataDescription
  *
  * @brief Class representing a citation (bibliographic reference)
  */
 
-// $Id$
 
 define('CITATION_RAW', 0x01);
-define('CITATION_EDITED', 0x02);
+define('CITATION_CHECKED', 0x02);
 define('CITATION_PARSED', 0x03);
 define('CITATION_LOOKED_UP', 0x04);
+define('CITATION_APPROVED', 0x05);
 
-import('core.DataObject');
-import('metadata.nlm.NlmCitationSchema');
-import('metadata.nlm.NlmCitationSchemaCitationAdapter');
+import('lib.pkp.classes.core.DataObject');
+import('lib.pkp.plugins.metadata.nlm30.schema.Nlm30CitationSchema');
+import('lib.pkp.plugins.metadata.nlm30.filter.Nlm30CitationSchemaCitationAdapter');
 
 class Citation extends DataObject {
 	/** @var int citation state (raw, edited, parsed, looked-up) */
 	var $_citationState = CITATION_RAW;
+
+	/** @var array an array of MetadataDescriptions */
+	var $_sourceDescriptions = array();
+
+	/** @var integer the max sequence number that has been attributed so far */
+	var $_maxSourceDescriptionSeq = 0;
+
+	/**
+	 * @var array errors that occurred while
+	 *  checking or filtering the citation.
+	 */
+	var $_errors = array();
+
 
 	/**
 	 * Constructor.
 	 * @param $rawCitation string an unparsed citation string
 	 */
 	function Citation($rawCitation = null) {
-		parent::DataObject();
+		// Switch on meta-data adapter support.
+		$this->setHasLoadableAdapters(true);
 
-		// Add NLM meta-data adapter.
-		// FIXME: This will later be done via plugin/user-configurable settings,
-		// see comment in DataObject::DataObject().
-		$metadataAdapter = new NlmCitationSchemaCitationAdapter();
-		$this->addSupportedMetadataAdapter($metadataAdapter);
+		parent::DataObject();
 
 		$this->setRawCitation($rawCitation); // this will set state to CITATION_RAW
 	}
@@ -52,6 +61,56 @@ class Citation extends DataObject {
 	//
 	// Getters and Setters
 	//
+	/**
+	 * Set meta-data descriptions discovered for this
+	 * citation from external sources.
+	 *
+	 * @param $sourceDescriptions array MetadataDescriptions
+	 */
+	function setSourceDescriptions(&$sourceDescriptions) {
+		$this->_sourceDescriptions =& $sourceDescriptions;
+	}
+
+	/**
+	 * Add a meta-data description discovered for this
+	 * citation from an external source.
+	 *
+	 * @param $sourceDescription MetadataDescription
+	 * @return integer the source description's sequence
+	 *  number.
+	 */
+	function addSourceDescription(&$sourceDescription) {
+		assert(is_a($sourceDescription, 'MetadataDescription'));
+
+		// Identify an appropriate sequence number.
+		$seq = $sourceDescription->getSeq();
+		if (is_numeric($seq) && $seq > 0) {
+			// This description has a pre-set sequence number
+			if ($seq > $this->_maxSourceDescriptionSeq) $this->_maxSourceDescriptionSeq = $seq;
+		} else {
+			// We'll create a sequence number for the description
+			$this->_maxSourceDescriptionSeq++;
+			$seq = $this->_maxSourceDescriptionSeq;
+			$sourceDescription->setSeq($seq);
+		}
+
+		// We add descriptions by display name as they are
+		// purely informational. This avoids getting duplicates
+		// when we update a description.
+		$this->_sourceDescriptions[$sourceDescription->getDisplayName()] =& $sourceDescription;
+		return $seq;
+	}
+
+	/**
+	 * Get all meta-data descriptions discovered for this
+	 * citation from external sources.
+	 *
+	 * @return array MetadataDescriptions
+	 */
+	function &getSourceDescriptions() {
+		return $this->_sourceDescriptions;
+	}
+
 	/**
 	 * Get the citationState
 	 * @return integer
@@ -102,6 +161,23 @@ class Citation extends DataObject {
 	}
 
 	/**
+	 * Add a checking error
+	 * @param $errorMessage string
+	 */
+	function addError($errorMessage) {
+		$this->_errors[] = $errorMessage;
+	}
+
+	/**
+	 * Get all checking errors
+	 * @return array
+	 */
+	function getErrors() {
+		return $this->_errors;
+	}
+
+
+	/**
 	 * Get the rawCitation
 	 * @return string
 	 */
@@ -120,53 +196,19 @@ class Citation extends DataObject {
 	}
 
 	/**
-	 * Get the editedCitation
-	 * @return string
-	 */
-	function getEditedCitation() {
-		return $this->getData('editedCitation');
-	}
-
-	/**
-	 * Set the editedCitation
-	 * @param $editedCitation string
-	 */
-	function setEditedCitation($editedCitation) {
-		$editedCitation = $this->_cleanCitationString($editedCitation);
-
-		$this->setData('editedCitation', $editedCitation);
-	}
-
-	/**
-	 * Get the confidence score the citation parser attributed to this citation
+	 * Get the sequence number
 	 * @return integer
 	 */
-	function getParseScore() {
-		return $this->getData('parseScore');
+	function getSeq() {
+		return $this->getData('seq');
 	}
 
 	/**
-	 * Set the confidence score of the citation parser
-	 * @param $parseScore integer
+	 * Set the sequence number
+	 * @param $seq integer
 	 */
-	function setParseScore($parseScore) {
-		$this->setData('parseScore', $parseScore);
-	}
-
-	/**
-	 * Get the lookup similarity score that the citation parser attributed to this citation
-	 * @return integer
-	 */
-	function getLookupScore() {
-		return $this->getData('lookupScore');
-	}
-
-	/**
-	 * Set the lookup similarity score
-	 * @param $lookupScore integer
-	 */
-	function setLookupScore($lookupScore) {
-		$this->setData('lookupScore', $lookupScore);
+	function setSeq($seq) {
+		$this->setData('seq', $seq);
 	}
 
 	/**
@@ -176,10 +218,9 @@ class Citation extends DataObject {
 	 * @return array
 	 */
 	function &getNamespacedMetadataProperties() {
-		$metadataAdapters =& $this->getSupportedMetadataAdapters();
+		$metadataSchemas =& $this->getSupportedMetadataSchemas();
 		$metadataProperties = array();
-		foreach($metadataAdapters as $metadataAdapter) {
-			$metadataSchema =& $metadataAdapter->getMetadataSchema();
+		foreach($metadataSchemas as $metadataSchema) {
 			$metadataProperties[$metadataSchema->getNamespace()] = $metadataSchema->getProperties();
 		}
 		return $metadataProperties;
@@ -197,9 +238,10 @@ class Citation extends DataObject {
 	function _getSupportedCitationStates() {
 		static $_supportedCitationStates = array(
 			CITATION_RAW,
-			CITATION_EDITED,
+			CITATION_CHECKED,
 			CITATION_PARSED,
-			CITATION_LOOKED_UP
+			CITATION_LOOKED_UP,
+			CITATION_APPROVED
 		);
 		return $_supportedCitationStates;
 	}

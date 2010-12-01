@@ -12,9 +12,46 @@
  * @ingroup core
  *
  * @brief Basic router class that has functionality common to all routers.
+ *
+ * NB: All handlers provide the common basic workflow. The router
+ * calls the following methods in the given order.
+ * 1) constructor:
+ *       Handlers should establish a mapping of remote
+ *       operations to roles that may access them. They do
+ *       so by calling PKPHandler::addRoleAssignment().
+ * 2) authorize():
+ *       Authorizes the request, among other things based
+ *       on the result of the role assignment created
+ *       during object instantiation. If authorization fails
+ *       then die with a fatal error or execute the "call-
+ *       on-deny" advice if one has been defined in the
+ *       authorization policy that denied access.
+ * 3) validate():
+ *       Let the handler execute non-fatal data integrity
+ *       checks (FIXME: currently only for component handlers).
+ *       Please make sure that data integrity checks that can
+ *       lead to denial of access are being executed in the
+ *       authorize() step via authorization policies and not
+ *       here.
+ * 4) initialize():
+ *       Let the handler initialize its internal state based
+ *       on authorized and valid data. Authorization and integrity
+ *       checks should be kept out of here to get a clear separation
+ *       of concerns.
+ * 5) execution:
+ *       Executes the requested handler operation. The mapping
+ *       of requests to operations depends on the router
+ *       implementation (see the class doc of specific router
+ *       implementations for more details).
+ * 6) client response:
+ *       Handlers should return a string value that will then be
+ *       returned to the client as a response. Handler operations
+ *       should not output the response directly to the client so
+ *       that we can run filter operations on the output if required.
+ *       Outputting text from handler operations to the client
+ *       is possible but deprecated.
  */
 
-// $Id$
 
 class PKPRouter {
 	//
@@ -62,7 +99,7 @@ class PKPRouter {
 
 	/**
 	 * get the dispatcher
-	 * @return PKPDispatcher
+	 * @return Dispatcher
 	 */
 	function &getDispatcher() {
 		assert(is_a($this->_dispatcher, 'Dispatcher'));
@@ -95,43 +132,6 @@ class PKPRouter {
 	function isCacheable(&$request) {
 		// Default implementation returns always false
 		return false;
-	}
-
-	/**
-	 * Determine the filename to use for a local cache file.
-	 * @param $request PKPRequest
-	 * @return string
-	 */
-	function getCacheFilename(&$request) {
-		// must be implemented by sub-classes
-		assert(false);
-	}
-
-	/**
-	 * Routes a given request to a handler operation
-	 * @param $request PKPRequest
-	 */
-	function route(&$request) {
-		// must be implemented by sub-classes
-		assert(false);
-	}
-
-	/**
-	 * Build a handler request URL into PKPApplication.
-	 * @param $request PKPRequest the request to be routed
-	 * @param $newContext mixed Optional contextual paths
-	 * @param $handler string Optional name of the handler to invoke
-	 * @param $op string Optional name of operation to invoke
-	 * @param $path mixed Optional string or array of args to pass to handler
-	 * @param $params array Optional set of name => value pairs to pass as user parameters
-	 * @param $anchor string Optional name of anchor to add to URL
-	 * @param $escape boolean Whether or not to escape ampersands for this URL; default false.
-	 * @return string the URL
-	 */
-	function url(&$request, $newContext = null, $handler = null, $op = null, $path = null,
-				$params = null, $anchor = null, $escape = false) {
-		// must be implemented by sub-classes
-		assert(false);
 	}
 
 	/**
@@ -271,7 +271,7 @@ class PKPRouter {
 			if ($request->isRestfulUrlsEnabled()) {
 				$this->_indexUrl = $request->getBaseUrl();
 			} else {
-				$this->_indexUrl = $request->getBaseUrl() . '/' . basename($_SERVER['SCRIPT_NAME']);
+				$this->_indexUrl = $request->getBaseUrl() . '/index.php';
 			}
 			HookRegistry::call('Router::getIndexUrl', array(&$this->_indexUrl));
 		}
@@ -279,9 +279,111 @@ class PKPRouter {
 		return $this->_indexUrl;
 	}
 
+
 	//
-	// Private class helper methods
+	// Protected template methods to be implemented by sub-classes.
 	//
+	/**
+	 * Determine the filename to use for a local cache file.
+	 * @param $request PKPRequest
+	 * @return string
+	 */
+	function getCacheFilename(&$request) {
+		// must be implemented by sub-classes
+		assert(false);
+	}
+
+	/**
+	 * Routes a given request to a handler operation
+	 * @param $request PKPRequest
+	 */
+	function route(&$request) {
+		// Must be implemented by sub-classes.
+		assert(false);
+	}
+
+	/**
+	 * Build a handler request URL into PKPApplication.
+	 * @param $request PKPRequest the request to be routed
+	 * @param $newContext mixed Optional contextual paths
+	 * @param $handler string Optional name of the handler to invoke
+	 * @param $op string Optional name of operation to invoke
+	 * @param $path mixed Optional string or array of args to pass to handler
+	 * @param $params array Optional set of name => value pairs to pass as user parameters
+	 * @param $anchor string Optional name of anchor to add to URL
+	 * @param $escape boolean Whether or not to escape ampersands for this URL; default false.
+	 * @return string the URL
+	 */
+	function url(&$request, $newContext = null, $handler = null, $op = null, $path = null,
+				$params = null, $anchor = null, $escape = false) {
+		// Must be implemented by sub-classes.
+		assert(false);
+	}
+
+	/**
+	 * Handle an authorization failure.
+	 * @param $request Request
+	 * @param $authorizationMessage string a translation key with the authorization
+	 *  failure message.
+	 */
+	function handleAuthorizationFailure($request, $authorizationMessage) {
+		// Must be implemented by sub-classes.
+		assert(false);
+	}
+
+
+	//
+	// Private helper methods
+	//
+	/**
+	 * This is the method that implements the basic
+	 * life-cycle of a handler request:
+	 * 1) authorization
+	 * 2) validation
+	 * 3) initialization
+	 * 4) execution
+	 * 5) client response
+	 *
+	 * @param $serviceEndpoint callable the handler operation
+	 * @param $request PKPRequest
+	 * @param $args array
+	 * @param $validate boolean whether or not to execute the
+	 *  validation step.
+	 */
+	function _authorizeInitializeAndCallRequest(&$serviceEndpoint, &$request, &$args, $validate = true) {
+		assert(is_callable($serviceEndpoint));
+
+		// Pass the dispatcher to the handler.
+		$serviceEndpoint[0]->setDispatcher($this->getDispatcher());
+
+		// Authorize the request.
+		$roleAssignments = $serviceEndpoint[0]->getRoleAssignments();
+		assert(is_array($roleAssignments));
+		if ($serviceEndpoint[0]->authorize($request, $args, $roleAssignments)) {
+			// Execute class-wide data integrity checks.
+			if ($validate) $serviceEndpoint[0]->validate($request, $args);
+
+			// Let the handler initialize itself.
+			$serviceEndpoint[0]->initialize($request, $args);
+
+			// Call the service endpoint.
+			$result = call_user_func($serviceEndpoint, $args, $request);
+		} else {
+			// Authorization failed - try to retrieve a user
+			// message.
+			$authorizationMessage = $serviceEndpoint[0]->getLastAuthorizationMessage();
+
+			// Set a generic authorization message if no
+			// specific authorization message was set.
+			if (is_null($authorizationMessage)) $authorizationMessage = 'user.authorization.accessDenied';
+
+			// Handle the authorization failure.
+			$result = $this->handleAuthorizationFailure($request, $authorizationMessage);
+		}
+
+		// Return the result of the operation to the client.
+		if (is_string($result)) echo $result;
+	}
 
 	/**
 	 * Canonicalizes the new context.
@@ -358,7 +460,6 @@ class PKPRouter {
 				$contextObject =& $this->getContextByName($request, $contextName);
 				if ($contextObject) $contextValue = $contextObject->getPath();
 				else $contextValue = 'index';
-
 			}
 
 			// Check whether the base URL is overridden.
@@ -366,7 +467,7 @@ class PKPRouter {
 				$overriddenBaseUrl = Config::getVar('general', "base_url[$contextValue]");
 			}
 
-			$context[] = $contextParameter.$contextValue;;
+			$context[] = $contextParameter.$contextValue;
 		}
 
 		// Generate the base url

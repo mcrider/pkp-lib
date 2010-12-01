@@ -16,24 +16,24 @@
  * @brief Class defining basic operations for handling HTML forms.
  */
 
-import('form.FormError');
+import('lib.pkp.classes.form.FormError');
 
 // Import all form validators for convenient use in sub-classes
-import('form.validation.FormValidatorAlphaNum');
-import('form.validation.FormValidatorArray');
-import('form.validation.FormValidatorArrayCustom');
-import('form.validation.FormValidatorControlledVocab');
-import('form.validation.FormValidatorCustom');
-import('form.validation.FormValidatorCaptcha');
-import('form.validation.FormValidatorEmail');
-import('form.validation.FormValidatorInSet');
-import('form.validation.FormValidatorLength');
-import('form.validation.FormValidatorLocale');
-import('form.validation.FormValidatorLocaleEmail');
-import('form.validation.FormValidatorPost');
-import('form.validation.FormValidatorRegExp');
-import('form.validation.FormValidatorUri');
-import('form.validation.FormValidatorUrl');
+import('lib.pkp.classes.form.validation.FormValidatorAlphaNum');
+import('lib.pkp.classes.form.validation.FormValidatorArray');
+import('lib.pkp.classes.form.validation.FormValidatorArrayCustom');
+import('lib.pkp.classes.form.validation.FormValidatorControlledVocab');
+import('lib.pkp.classes.form.validation.FormValidatorCustom');
+import('lib.pkp.classes.form.validation.FormValidatorCaptcha');
+import('lib.pkp.classes.form.validation.FormValidatorEmail');
+import('lib.pkp.classes.form.validation.FormValidatorInSet');
+import('lib.pkp.classes.form.validation.FormValidatorLength');
+import('lib.pkp.classes.form.validation.FormValidatorLocale');
+import('lib.pkp.classes.form.validation.FormValidatorLocaleEmail');
+import('lib.pkp.classes.form.validation.FormValidatorPost');
+import('lib.pkp.classes.form.validation.FormValidatorRegExp');
+import('lib.pkp.classes.form.validation.FormValidatorUri');
+import('lib.pkp.classes.form.validation.FormValidatorUrl');
 
 class Form {
 
@@ -64,12 +64,17 @@ class Form {
 	/** Client-side validation rules **/
 	var $cssValidation;
 
+	/** @var $requiredLocale string Symbolic name of required locale */
+	var $requiredLocale;
+
+	/** @var $supportedLocales array Set of supported locales */
+	var $supportedLocales;
 
 	/**
 	 * Constructor.
 	 * @param $template string the path to the form template file
 	 */
-	function Form($template, $callHooks = true) {
+	function Form($template = null, $callHooks = true, $requiredLocale = null, $supportedLocales = null) {
 		if ($callHooks === true && checkPhpVersion('4.3.0')) {
 			$trace = debug_backtrace();
 			// Call hooks based on the calling entity, assuming
@@ -78,6 +83,11 @@ class Form {
 			// Note that class names are always lower case.
 			HookRegistry::call(strtolower($trace[1]['class']) . '::Constructor', array(&$this, &$template));
 		}
+
+		if ($requiredLocale === null) $requiredLocale = Locale::getPrimaryLocale();
+		$this->requiredLocale = $requiredLocale;
+		if ($supportedLocales === null) $supportedLocales = Locale::getSupportedFormLocales();
+		$this->supportedLocales = $supportedLocales;
 
 		$this->_template = $template;
 		$this->_data = array();
@@ -89,19 +99,67 @@ class Form {
 		$this->fbvStyles = array(
 			'size' => array('SMALL' => 'SMALL', 'MEDIUM' => 'MEDIUM', 'LARGE' => 'LARGE'),
 			'float' => array('RIGHT' => 'RIGHT', 'LEFT' => 'LEFT'),
-			'measure' => array('1OF2' => '1OF2', '3OF4' => '3OF4', '2OF3' => '2OF3'),
+			'align' => array('RIGHT' => 'RIGHT', 'LEFT' => 'LEFT'),
+			'measure' => array('1OF1' => '1OF1', '1OF2' => '1OF2', '1OF3' => '1OF3', '2OF3' => '2OF3', '1OF4' => '1OF4', '3OF4' => '3OF4',
+							'1OF5' => '1OF5', '2OF5' => '2OF5', '3OF5' => '3OF5', '4OF5' => '4OF5', '1OF10' => '1OF10', '8OF10' => '8OF10'),
 			'layout' => array('THREE_COLUMNS' => 'THREE_COLUMNS', 'TWO_COLUMNS' => 'TWO_COLUMNS', 'ONE_COLUMN' => 'ONE_COLUMN')
 		);
 	}
 
+
+	//
+	// Setters and Getters
+	//
+	/**
+	 * Set the template
+	 * @param $template string
+	 */
+	function setTemplate($template) {
+		$this->_template = $template;
+	}
+
+	/**
+	 * Get the template
+	 * @return string
+	 */
+	function getTemplate() {
+		return $this->_template;
+	}
+
+	/**
+	 * Get the required locale for this form (i.e. the locale for which
+	 * required fields must be set, all others being optional)
+	 * @return string
+	 */
+	function getRequiredLocale() {
+		return $this->requiredLocale;
+	}
+
+	//
+	// Public Methods
+	//
 	/**
 	 * Display the form.
 	 * @param $request PKPRequest
-	 * @param $fetch boolean if set to true will return the rendered
-	 *  form rather than sending the response to the user
-	 * @return string the rendered form if fetch is true, otherwise null
+	 * @param $template string the template to be rendered, mandatory
+	 *  if no template has been specified on class instantiation.
 	 */
-	function display($request = null, $fetch = false) {
+	function display($request = null, $template = null) {
+		$this->fetch($request, $template, true);
+	}
+
+	/**
+	 * Returns a string of the rendered form
+	 * @param $request PKPRequest
+	 * @param $template string the template to be rendered, mandatory
+	 *  if no template has been specified on class instantiation.
+	 * @param $display boolean
+	 * @return string the rendered form
+	 */
+	function fetch(&$request, $template = null, $display = false) {
+		// Set custom template.
+		if (!is_null($template)) $this->_template = $template;
+
 		if (checkPhpVersion('4.3.0')) {
 			$returner = null;
 			$trace = debug_backtrace();
@@ -126,13 +184,17 @@ class Form {
 		$templateMgr->register_block('fbvCustomElement', array(&$this, 'smartyFBVCustomElement'));
 		$templateMgr->register_block('fbvFormArea', array(&$this, 'smartyFBVFormArea'));
 		$templateMgr->register_function('fbvButton', array(&$this, 'smartyFBVButton'));
+		$templateMgr->register_function('fbvLink', array(&$this, 'smartyFBVLink'));
 		$templateMgr->register_function('fbvTextInput', array(&$this, 'smartyFBVTextInput'));
-		$templateMgr->register_function('fbvTextarea', array(&$this, 'smartyFBVTextArea'));
+		$templateMgr->register_function('fbvTextArea', array(&$this, 'smartyFBVTextArea'));
 		$templateMgr->register_function('fbvSelect', array(&$this, 'smartyFBVSelect'));
 		$templateMgr->register_function('fbvElement', array(&$this, 'smartyFBVElement'));
 		$templateMgr->register_function('fbvElementMultilingual', array(&$this, 'smartyFBVElementMultilingual'));
 		$templateMgr->register_function('fbvCheckbox', array(&$this, 'smartyFBVCheckbox'));
 		$templateMgr->register_function('fbvRadioButton', array(&$this, 'smartyFBVRadioButton'));
+		$templateMgr->register_function('fbvFileInput', array(&$this, 'smartyFBVFileInput'));
+		$templateMgr->register_function('fbvKeywordInput', array(&$this, 'smartyFBVKeywordInput'));
+		$templateMgr->register_function('init_button_bar', array(&$this, 'smartyInitButtonBar'));
 
 		$templateMgr->assign('fbvStyles', $this->fbvStyles);
 
@@ -140,22 +202,15 @@ class Form {
 		$templateMgr->assign('isError', !$this->isValid());
 		$templateMgr->assign('errors', $this->getErrorsArray());
 
-		$templateMgr->assign('formLocales', Locale::getSupportedFormLocales());
+		$templateMgr->assign('formLocales', $this->supportedLocales);
 
 		// Determine the current locale to display fields with
-		$formLocale = Request::getUserVar('formLocale');
-		if (empty($formLocale)) $formLocale = Locale::getLocale();
-		if (!in_array($formLocale, array_keys(Locale::getSupportedFormLocales()))) {
-			$formLocale = Locale::getPrimaryLocale();
-		}
-		$templateMgr->assign('formLocale', $formLocale);
+		$formLocale = $this->getFormLocale();
+		$templateMgr->assign('formLocale', $this->getFormLocale());
 
-		if ($fetch) {
-			return $templateMgr->fetch($this->_template);
-		} else {
-			$templateMgr->display($this->_template);
-			return null;
-		}
+		// N.B: We have to call $templateMgr->display instead of ->fetch($display)
+		// in order for the TemplateManager::display hook to be called
+		return $templateMgr->display($this->_template, null, null, $display);
 	}
 
 	/**
@@ -194,8 +249,10 @@ class Form {
 
 	/**
 	 * Assign form data to user-submitted data.
+	 * Can be overridden from subclasses.
 	 */
 	function readInputData() {
+		// Default implementation does nothing.
 	}
 
 	/**
@@ -292,12 +349,24 @@ class Form {
 	}
 
 	/**
+	 * Get the default form locale.
+	 * @return string
+	 */
+	function getDefaultFormLocale() {
+		if (empty($formLocale)) $formLocale = Locale::getLocale();
+		if (!isset($this->supportedLocales[$formLocale])) $formLocale = $this->requiredLocale;
+		return $formLocale;
+	}
+
+	/**
 	 * Get the current form locale.
 	 * @return string
 	 */
 	function getFormLocale() {
 		$formLocale = Request::getUserVar('formLocale');
-		if (empty($formLocale)) $formLocale = Locale::getLocale();
+		if (!$formLocale || !isset($this->supportedLocales[$formLocale])) {
+			$formLocale = $this->getDefaultFormLocale();
+		}
 		return $formLocale;
 	}
 
@@ -413,27 +482,6 @@ class Form {
 		return $returner;
 	}
 
-	function _decomposeArray($name, $value, $stack) {
-		$returner = '';
-		if (is_array($value)) {
-			foreach ($value as $key => $subValue) {
-				$newStack = $stack;
-				$newStack[] = $key;
-				$returner .= $this->_decomposeArray($name, $subValue, $newStack);
-			}
-		} else {
-			$name = htmlentities($name, ENT_COMPAT, LOCALE_ENCODING);
-			$value = htmlentities($value, ENT_COMPAT, LOCALE_ENCODING);
-			$returner .= '<input type="hidden" name="' . $name;
-			while (($item = array_shift($stack)) !== null) {
-				$item = htmlentities($item, ENT_COMPAT, LOCALE_ENCODING);
-				$returner .= '[' . $item . ']';
-			}
-			$returner .= '" value="' . $value . "\" />\n";
-		}
-		return $returner;
-	}
-
 	/**
 	 * Add hidden form parameters for the localized fields for this form
 	 * and display the language chooser field
@@ -445,7 +493,7 @@ class Form {
 
 		// Print back all non-current language field values so that they
 		// are not lost.
-		$formLocale = $smarty->get_template_vars('formLocale');
+		$formLocale = $this->getFormLocale();
 		foreach ($this->getLocaleFieldNames() as $field) {
 			$values = $this->getData($field);
 			if (!is_array($values)) continue;
@@ -455,9 +503,8 @@ class Form {
 		}
 
 		// Display the language selector widget.
-		$formLocale = $smarty->get_template_vars('formLocale');
 		$returner .= '<div id="languageSelector"><select size="1" name="formLocale" id="formLocale" onchange="changeFormAction(\'' . htmlentities($params['form'], ENT_COMPAT, LOCALE_ENCODING) . '\', \'' . htmlentities($params['url'], ENT_QUOTES, LOCALE_ENCODING) . '\')" class="selectMenu">';
-		foreach (Locale::getSupportedLocales() as $locale => $name) {
+		foreach ($this->supportedLocales as $locale => $name) {
 			$returner .= '<option ' . ($locale == $formLocale?'selected="selected" ':'') . 'value="' . htmlentities($locale, ENT_COMPAT, LOCALE_ENCODING) . '">' . htmlentities($name, ENT_COMPAT, LOCALE_ENCODING) . '</option>';
 		}
 		$returner .= '</select></div>';
@@ -465,6 +512,47 @@ class Form {
 	}
 
 	/** form builder vocabulary - FBV */
+
+	/**
+	 * Get the list of all classes to append to the element (including any custom class set directly in the element)
+	 * @param $params array
+	 * @return string
+	 */
+	function getAllStyles($params) {
+		$class = isset($params['class']) ? $params['class'] : '';
+
+		// Get size (height)
+		if ($size = $params['size']) {
+			$size = $params['size'];
+			$class .= ' ' . $this->getStyleInfoByIdentifier('size', $size);
+		}
+
+		// Get measure (width)
+		if ($measure = $params['measure']) {
+			$measure = $params['measure'];
+			$class .= ' ' . $this->getStyleInfoByIdentifier('measure', $measure);
+		}
+
+		// Get float information (for sections)
+		if ($float = $params['float']) {
+			$float = $params['float'];
+			$class .= ' ' . $this->getStyleInfoByIdentifier('float', $float);
+		}
+
+		// Get alignment information (for elements)
+		if ($align = $params['align']) {
+			$align = $params['align'];
+			$class .= ' ' . $this->getStyleInfoByIdentifier('align', $align);
+		}
+
+		// Get layout information (number of columns)
+		if ($layout = $params['layout']) {
+			$layout = $params['layout'];
+			$class .= ' ' . $this->getStyleInfoByIdentifier('layout', $float);
+		}
+
+		return $class;
+	}
 
 	/**
 	 * Retrieve style info associated with style constants.
@@ -487,6 +575,12 @@ class Form {
 					case 'RIGHT': $returner = 'full rightHalf'; break;
 				}
 				break;
+			case 'align':
+				switch($value) {
+					case 'LEFT': $returner = 'align_left'; break;
+					case 'RIGHT': $returner = 'align_right'; break;
+				}
+				break;
 			case 'layout':
 				switch($value) {
 					case 'THREE_COLUMNS': $returner = 'full threeColumns'; break;
@@ -496,9 +590,18 @@ class Form {
 				break;
 			case 'measure':
 				switch($value) {
+					case '1OF1': $returner = 'size1of1'; break;
 					case '1OF2': $returner = 'size1of2'; break;
+					case '1OF3': $returner = 'size1of3'; break;
 					case '2OF3': $returner = 'size2of3'; break;
+					case '1OF4': $returner = 'size1of4'; break;
 					case '3OF4': $returner = 'size3of4'; break;
+					case '1OF5': $returner = 'size3of5'; break;
+					case '2OF5': $returner = 'size2of5'; break;
+					case '3OF5': $returner = 'size3of5'; break;
+					case '4OF5': $returner = 'size4of5'; break;
+					case '1OF10': $returner = 'size1of10'; break;
+					case '8OF10': $returner = 'size8of10'; break;
 				}
 				break;
 		}
@@ -550,20 +653,7 @@ class Form {
 			$smarty->assign('FBV_title', $params['title']);
 			$smarty->assign('FBV_content', $content);
 
-
-			$floatInfo = '';
-			$float = isset($params['float']) ? $params['float'] : null;
-			if ($float) {
-				$floatInfo = $this->getStyleInfoByIdentifier('float', $float);
-			}
-
-			$layoutInfo = '';
-			$layout = isset($params['layout']) ? $params['layout'] : null;
-			if ($layout) {
-				$layoutInfo = $this->getStyleInfoByIdentifier('layout', $layout);
-			}
-
-			$class = empty($layoutInfo) ? $floatInfo : $layoutInfo . ' ' . $floatInfo;
+			$class = $this->getAllStyles($params);
 
 			if (!empty($this->formSectionErrors)) {
 				$class = $class . (empty($class) ? '' : ' ') . 'error';
@@ -597,9 +687,9 @@ class Form {
 		$values = $params['value'];
 		$name = $params['name'];
 
-		foreach (Locale::getSupportedLocales() as $locale => $localeName) {
+		foreach ($this->supportedLocales as $locale => $localeName) {
 			// if the field is required, only set the main locale as required and others optional
-			if ( $locale == Locale::getPrimaryLocale() ) {
+			if ($locale == $this->requiredLocale) {
 				$params['required'] = $required;
 			} else {
 				$params['required'] = false;
@@ -659,6 +749,7 @@ class Form {
 				}
 			}
 
+			$smarty->assign('FBV_class', $this->getAllStyles($params));
 			$smarty->assign('FBV_content', $content);
 			$smarty->assign('FBV_group', $group);
 			$smarty->assign('FBV_id', isset($params['id']) ? $params['id'] : null);
@@ -709,17 +800,58 @@ class Form {
 
 		foreach ($params as $key => $value) {
 			switch ($key) {
+				case 'class': break; //ignore class attributes
 				case 'label': $smarty->assign('FBV_label', $value); break;
 				case 'type': $smarty->assign('FBV_type', $value); break;
-				case 'class': break; //ignore class attributes
 				case 'disabled': $smarty->assign('FBV_disabled', $params['disabled']); break;
 				default: $buttonParams .= htmlspecialchars($key, ENT_QUOTES, LOCALE_ENCODING) . '="' . htmlspecialchars($value, ENT_QUOTES, LOCALE_ENCODING) . '" ';
 			}
 		}
 
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
+		$smarty->assign('FBV_id', isset($params['id']) ? $params['id'] : null);
 		$smarty->assign('FBV_buttonParams', $buttonParams);
 
 		return $smarty->fetch('form/button.tpl');
+	}
+
+	/**
+	 * Form button.
+	 * parameters: label (or value), disabled (optional), type (optional), all other attributes associated with this control (except class)
+	 * @param $params array
+	 * @param $smarty object
+	 */
+	function smartyFBVLink($params, &$smarty) {
+		if (!isset($params['id'])) {
+			$smarty->trigger_error('FBV: link form element \'id\' not set.');
+		}
+
+		// accept 'value' param, but the 'label' param is preferred
+		if (isset($params['value'])) {
+			$value = $params['value'];
+			$params['label'] = isset($params['label']) ? $params['label'] : $value;
+			unset($params['value']);
+		}
+
+		// the type of this button. the default value is 'button'
+		$params['type'] = isset($params['type']) ? strtolower($params['type']) : 'button';
+		$params['disabled'] = isset($params['disabled']) ? $params['disabled'] : false;
+
+		foreach ($params as $key => $value) {
+			switch ($key) {
+				case 'class': break; //ignore class attributes
+				case 'label': $smarty->assign('FBV_label', $value); break;
+				case 'type': $smarty->assign('FBV_type', $value); break;
+				case 'disabled': $smarty->assign('FBV_disabled', $params['disabled']); break;
+				default: $buttonParams .= htmlspecialchars($key, ENT_QUOTES, LOCALE_ENCODING) . '="' . htmlspecialchars($value, ENT_QUOTES, LOCALE_ENCODING) . '" ';
+			}
+		}
+
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
+		$smarty->assign('FBV_id', isset($params['id']) ? $params['id'] : null);
+		$smarty->assign('FBV_buttonParams', $buttonParams);
+
+		return $smarty->fetch('form/link.tpl');
 	}
 
 	/**
@@ -741,15 +873,6 @@ class Form {
 		$smarty->assign('FBV_validation', null); // Reset form validation fields in memory
 		$smarty->assign('FBV_isPassword', isset($params['password']) ? true : false);
 
-		// prepare the control's size info
-		if (isset($params['size'])) {
-			$sizeInfo = $this->getStyleInfoByIdentifier('size', $params['size']);
-			$smarty->assign('FBV_sizeInfo', $sizeInfo);
-			unset($params['size']);
-		} else {
-			$smarty->assign('FBV_sizeInfo', null);
-		}
-
 		foreach ($params as $key => $value) {
 			switch ($key) {
 				case 'class': break; //ignore class attributes
@@ -761,6 +884,8 @@ class Form {
 				default: $textInputParams .= htmlspecialchars($key, ENT_QUOTES, LOCALE_ENCODING) . '="' . htmlspecialchars($value, ENT_QUOTES, LOCALE_ENCODING). '" ';
 			}
 		}
+
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
 		$smarty->assign('FBV_textInputParams', $textInputParams);
 
 		return $smarty->fetch('form/textInput.tpl');
@@ -784,15 +909,6 @@ class Form {
 		$params['disabled'] = isset($params['disabled']) ? $params['disabled'] : false;
 		$smarty->assign('FBV_validation', null); // Reset form validation fields in memory
 
-		// prepare the control's size info
-		if (isset($params['size'])) {
-			$sizeInfo = $this->getStyleInfoByIdentifier('size', $params['size']);
-			$smarty->assign('FBV_sizeInfo', $sizeInfo);
-			unset($params['size']);
-		} else {
-			$smarty->assign('FBV_sizeInfo', null);
-		}
-
 		foreach ($params as $key => $value) {
 			switch ($key) {
 				case 'value': $smarty->assign('FBV_value', $value); break;
@@ -805,6 +921,7 @@ class Form {
 			}
 		}
 
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
 		$smarty->assign('FBV_textAreaParams', $textAreaParams);
 
 		return $smarty->fetch('form/textarea.tpl');
@@ -847,6 +964,7 @@ class Form {
 			}
 		}
 
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
 		$smarty->assign('FBV_selectParams', $selectParams);
 
 		return $smarty->fetch('form/select.tpl');
@@ -888,6 +1006,7 @@ class Form {
 			}
 		}
 
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
 		$smarty->assign('FBV_checkboxParams', $checkboxParams);
 
 		return $smarty->fetch('form/checkbox.tpl');
@@ -923,9 +1042,111 @@ class Form {
 			}
 		}
 
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
 		$smarty->assign('FBV_radioParams', $radioParams);
 
 		return $smarty->fetch('form/radioButton.tpl');
+	}
+
+	/**
+	 * File upload input.
+	 * parameters: submit (optional - name of submit button to include), disabled (optional), name (optional - value of 'id' by default), all other attributes associated with this control (except class and type)
+	 * @param $params array
+	 * @param $smarty object
+	 */
+	function smartyFBVFileInput($params, &$smarty) {
+		if (!isset($params['id'])) {
+			$smarty->trigger_error('FBV: file input form element \'id\' not set.');
+		}
+
+		$radioParams = '';
+		$params['name'] = isset($params['name']) ? $params['name'] : $params['id'];
+		$params['translate'] = isset($params['translate']) ? $params['translate'] : true;
+		$params['checked'] = isset($params['checked']) ? $params['checked'] : false;
+		$params['disabled'] = isset($params['disabled']) ? $params['disabled'] : false;
+		$params['submit'] = isset($params['submit']) ? $params['submit'] : false;
+
+		foreach ($params as $key => $value) {
+			switch ($key) {
+				case 'class': break; //ignore class attributes
+				case 'type': break;
+				case 'id': $smarty->assign('FBV_id', $params['id']); break;
+				case 'submit': $smarty->assign('FBV_submit', $params['submit']); break;
+				case 'name': $smarty->assign('FBV_name', $params['name']); break;
+				case 'label': $smarty->assign('FBV_label', $params['label']); break;
+				case 'disabled': $smarty->assign('FBV_disabled', $params['disabled']); break;
+				default: $radioParams .= htmlspecialchars($key, ENT_QUOTES, LOCALE_ENCODING) . '="' . htmlspecialchars($value, ENT_QUOTES, LOCALE_ENCODING) . '" ';
+			}
+		}
+
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
+		$smarty->assign('FBV_radioParams', $radioParams);
+
+		return $smarty->fetch('form/fileInput.tpl');
+	}
+
+	/**
+	 * Keyword input.
+	 * parameters: available - all available keywords (for autosuggest); current - user's current keywords
+	 * @param $params array
+	 * @param $smarty object
+	 */
+	function smartyFBVKeywordInput($params, &$smarty) {
+		if (!isset($params['id'])) {
+			$smarty->trigger_error('FBV: file input form element \'id\' not set.');
+		}
+
+		foreach ($params as $key => $value) {
+			switch ($key) {
+				case 'class': break; //ignore class attributes
+				case 'type': break;
+				case 'id': $smarty->assign('FBV_id', $params['id']); break;
+				case 'label': $smarty->assign('FBV_label', $params['label']); break;
+				case 'available': $smarty->assign('FBV_availableKeywords', $params['available']); break;
+				case 'current': $smarty->assign('FBV_currentKeywords', $params['current']); break;
+				default: $keywordParams .= htmlspecialchars($key, ENT_QUOTES, LOCALE_ENCODING) . '="' . htmlspecialchars($value, ENT_QUOTES, LOCALE_ENCODING) . '" ';
+			}
+		}
+
+		$smarty->assign('FBV_class', $this->getAllStyles($params));
+		$smarty->assign('FBV_keywordParams', $keywordParams);
+
+		return $smarty->fetch('form/keywordInput.tpl');
+	}
+
+
+	/**
+	 * Smarty usage: {init_button_bar id="#editChapterForm" cancelId="#cancelButton" submitId="#submitButton"}
+	 *	NB: -id must be the main form of the modal (and be child of main modal container)
+	 * 		-cancelId refers to control that closes the modal without submitting the form (could be link or 'OK' button)
+	 * 		-submitId refers to control that submits the form then closes the modal
+	 * Custom Smarty function for rolling our own button bars for jQuery UI modals
+	 * @params $params array associative array
+	 * @params $smarty Smarty
+	 * @return string Call to modal function with specified parameters
+	 */
+	function smartyInitButtonBar($params, &$smarty) {
+		// Required params
+		// Id must be the main form of the modal (and be child of main modal container)
+		if (!isset($params['id'])) {
+			$smarty->trigger_error("Selector missing for modal button initialization");
+		} else {
+			$id = $params['id'];
+		}
+
+		$submitDisabled = isset($params['submitDisabled']) ? true : false;
+
+		if(isset($params['submitDisabled'])) {
+			$submitText = $params['submitText'];
+		} else {
+			$submitText = 'common.ok';
+		}
+
+		$smarty->assign('id', $id);
+		$smarty->assign('submitDisabled', $submitDisabled);
+		$smarty->assign('submitText', $submitText);
+
+		return $smarty->fetch('form/buttonBar.tpl');
 	}
 
 	/**
@@ -941,6 +1162,37 @@ class Form {
 		}
 
 		return $params;
+	}
+
+
+	//
+	// Private helper methods
+	//
+	/**
+	 * FIXME: document
+	 * @param $name
+	 * @param $value
+	 * @param $stack
+	 */
+	function _decomposeArray($name, $value, $stack) {
+		$returner = '';
+		if (is_array($value)) {
+			foreach ($value as $key => $subValue) {
+				$newStack = $stack;
+				$newStack[] = $key;
+				$returner .= $this->_decomposeArray($name, $subValue, $newStack);
+			}
+		} else {
+			$name = htmlentities($name, ENT_COMPAT, LOCALE_ENCODING);
+			$value = htmlentities($value, ENT_COMPAT, LOCALE_ENCODING);
+			$returner .= '<input type="hidden" name="' . $name;
+			while (($item = array_shift($stack)) !== null) {
+				$item = htmlentities($item, ENT_COMPAT, LOCALE_ENCODING);
+				$returner .= '[' . $item . ']';
+			}
+			$returner .= '" value="' . $value . "\" />\n";
+		}
+		return $returner;
 	}
 }
 

@@ -13,7 +13,6 @@
  * @brief Data structures associated with the OAI request handler.
  */
 
-// $Id$
 
 
 /**
@@ -150,11 +149,13 @@ class OAIMetadataFormat {
 		return '';
 	}
 
+	/**
+	 * Recursively strip HTML from a (multidimensional) array.
+	 * @param $values array
+	 * @return array the cleansed array
+	 */
 	function stripAssocArray($values) {
-		foreach (array_keys($values) as $key) {
-			$values[$key] = strip_tags($values[$key]);
-		}
-		return $values;
+		return stripAssocArray($values);
 	}
 }
 

@@ -37,12 +37,15 @@
 		file CDATA #REQUIRED>
 <!ELEMENT data EMPTY>
 	<!ATTLIST data
-		file CDATA #REQUIRED>
+		file CDATA #REQUIRED
+		condition CDATA #IMPLIED>
 <!ELEMENT code EMPTY>
 	<!ATTLIST code
 		file CDATA #IMPLIED
 		class CDATA #IMPLIED
-		function CDATA #REQUIRED>
+		function CDATA #REQUIRED
+		locales CDATA #IMPLIED
+		key CDATA #IMPLIED>
 <!ELEMENT note EMPTY>
 	<!ATTLIST note
 		file CDATA #REQUIRED>

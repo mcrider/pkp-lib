@@ -12,12 +12,16 @@
  * @brief Handle requests for announcement management functions.
  */
 
-//$Id$
-import('manager.ManagerHandler');
+
+import('pages.manager.ManagerHandler');
 
 class PKPAnnouncementHandler extends ManagerHandler {
 	function PKPAnnouncementHandler() {
 		parent::ManagerHandler();
+		$this->addRoleAssignment(ROLE_ID_PRESS_MANAGER,
+				array('announcements', 'announcementTypes', 'createAnnouncement', 'createAnnouncementType',
+				'deleteAnnouncement', 'deleteAnnouncementType', 'editAnnouncement', 'editAnnouncementType',
+				'index', 'updateAnnouncement', 'updateAnnouncementType'));
 	}
 
 	function index() {
@@ -28,6 +32,8 @@ class PKPAnnouncementHandler extends ManagerHandler {
 	 * Display a list of announcements for the current context.
 	 */
 	function announcements() {
+		// FIXME: Remove call to validate() when all ManagerHandler implementations
+		// (across all apps) have been migrated to the authorize() authorization approach.
 		$this->validate();
 		$this->setupTemplate();
 
@@ -55,6 +61,8 @@ class PKPAnnouncementHandler extends ManagerHandler {
 	 * @param $args array first parameter is the ID of the announcement to delete
 	 */
 	function deleteAnnouncement($args) {
+		// FIXME: Remove call to validate() when all ManagerHandler implementations
+		// (across all apps) have been migrated to the authorize() authorization approach.
 		$this->validate();
 
 		if (isset($args) && !empty($args)) {
@@ -76,6 +84,8 @@ class PKPAnnouncementHandler extends ManagerHandler {
 	 * @param $args array optional, first parameter is the ID of the announcement to edit
 	 */
 	function editAnnouncement($args = array()) {
+		// FIXME: Remove call to validate() when all ManagerHandler implementations
+		// (across all apps) have been migrated to the authorize() authorization approach.
 		$this->validate();
 		$this->setupTemplate();
 
@@ -84,7 +94,7 @@ class PKPAnnouncementHandler extends ManagerHandler {
 
 		// Ensure announcement is valid and for this context
 		if ($this->_announcementIsValid($announcementId)) {
-			import('manager.form.AnnouncementForm');
+			import('classes.manager.form.AnnouncementForm');
 
 			$templateMgr =& TemplateManager::getManager();
 			$templateMgr->append('pageHierarchy', array(PKPRequest::url(null, 'manager', 'announcements'), 'manager.announcements'));
@@ -123,10 +133,12 @@ class PKPAnnouncementHandler extends ManagerHandler {
 	 * Save changes to an announcement.
 	 */
 	function updateAnnouncement() {
+		// FIXME: Remove call to validate() when all ManagerHandler implementations
+		// (across all apps) have been migrated to the authorize() authorization approach.
 		$this->validate();
 		$this->setupTemplate();
 
-		import('manager.form.AnnouncementForm');
+		import('classes.manager.form.AnnouncementForm');
 
 		$announcementId = Request::getUserVar('announcementId') == null ? null : (int) Request::getUserVar('announcementId');
 		$announcementDao =& DAORegistry::getDAO('AnnouncementDAO');
@@ -170,6 +182,8 @@ class PKPAnnouncementHandler extends ManagerHandler {
 	 * Display a list of announcement types for the current context.
 	 */
 	function announcementTypes() {
+		// FIXME: Remove call to validate() when all ManagerHandler implementations
+		// (across all apps) have been migrated to the authorize() authorization approach.
 		$this->validate();
 		AnnouncementHandler::setupTemplate(true);
 
@@ -191,6 +205,8 @@ class PKPAnnouncementHandler extends ManagerHandler {
 	 * @param $args array first parameter is the ID of the announcement type to delete
 	 */
 	function deleteAnnouncementType($args) {
+		// FIXME: Remove call to validate() when all ManagerHandler implementations
+		// (across all apps) have been migrated to the authorize() authorization approach.
 		$this->validate();
 
 		if (isset($args) && !empty($args)) {
@@ -212,6 +228,8 @@ class PKPAnnouncementHandler extends ManagerHandler {
 	 * @param $args array optional, first parameter is the ID of the announcement type to edit
 	 */
 	function editAnnouncementType($args = array()) {
+		// FIXME: Remove call to validate() when all ManagerHandler implementations
+		// (across all apps) have been migrated to the authorize() authorization approach.
 		$this->validate();
 		$this->setupTemplate(true);
 
@@ -220,7 +238,7 @@ class PKPAnnouncementHandler extends ManagerHandler {
 
 		// Ensure announcement type is valid and for this context
 		if ($this->_announcementTypeIsValid($typeId)) {
-			import('manager.form.AnnouncementTypeForm');
+			import('classes.manager.form.AnnouncementTypeForm');
 
 			$templateMgr =& TemplateManager::getManager();
 			$templateMgr->append('pageHierarchy', array(PKPRequest::url(null, 'manager', 'announcementTypes'), 'manager.announcementTypes'));
@@ -255,10 +273,12 @@ class PKPAnnouncementHandler extends ManagerHandler {
 	 * Save changes to an announcement type.
 	 */
 	function updateAnnouncementType() {
+		// FIXME: Remove call to validate() when all ManagerHandler implementations
+		// (across all apps) have been migrated to the authorize() authorization approach.
 		$this->validate();
 		$this->setupTemplate(true);
 
-		import('manager.form.AnnouncementTypeForm');
+		import('classes.manager.form.AnnouncementTypeForm');
 
 		$typeId = Request::getUserVar('typeId') == null ? null : (int) Request::getUserVar('typeId');
 		$announcementTypeDao =& DAORegistry::getDAO('AnnouncementTypeDAO');

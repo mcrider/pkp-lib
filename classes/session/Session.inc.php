@@ -17,8 +17,6 @@
  * @brief Maintains user state information from one request to the next.
  */
 
-// $Id$
-
 
 class Session extends DataObject {
 

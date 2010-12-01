@@ -161,3 +161,4 @@ function deleteAttachment(fileId) {
 </form>
 
 {include file="common/footer.tpl"}
+

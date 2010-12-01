@@ -12,8 +12,6 @@
  * @brief Class providing operations associated with HTTP requests.
  */
 
-// $Id$
-
 
 class PKPRequest {
 	//
@@ -21,6 +19,8 @@ class PKPRequest {
 	//
 	/** @var PKPRouter router instance used to route this request */
 	var $_router = null;
+	/** @var Dispatcher dispatcher instance used to dispatch this request */
+	var $_dispatcher = null;
 	/** @var array the request variables cache (GET/POST) */
 	var $_requestVars = null;
 	/** @var string request base path */
@@ -37,9 +37,6 @@ class PKPRequest {
 	var $_baseUrl;
 	/** @var string request protocol */
 	var $_protocol;
-	/** @var boolean true, if deprecation warning is switched on */
-	var $_deprecationWarning = null;
-
 
 
 	/**
@@ -57,6 +54,23 @@ class PKPRequest {
 	function setRouter(&$router) {
 		$this->_router =& $router;
 	}
+
+	/**
+	 * Set the dispatcher
+	 * @param $dispatcher Dispatcher
+	 */
+	function setDispatcher(&$dispatcher) {
+		$this->_dispatcher =& $dispatcher;
+	}
+
+	/**
+	 * Get the dispatcher
+	 * @return Dispatcher
+	 */
+	function &getDispatcher() {
+		return $this->_dispatcher;
+	}
+
 
 	/**
 	 * Perform an HTTP redirect to an absolute or relative (to base system URL) URL.
@@ -330,7 +344,7 @@ class PKPRequest {
 		if (!isset($ipaddr)) {
 			if (isset($_SERVER['HTTP_X_FORWARDED_FOR']) &&
 				preg_match_all('/([0-9.a-fA-F:]+)/', $_SERVER['HTTP_X_FORWARDED_FOR'], $matches)) {
-			} else if (isset($_SERVER['REMOTE_ADDR']) && 
+			} else if (isset($_SERVER['REMOTE_ADDR']) &&
 				preg_match_all('/([0-9.a-fA-F:]+)/', $_SERVER['REMOTE_ADDR'], $matches)) {
 			} else if (preg_match_all('/([0-9.a-fA-F:]+)/', getenv('REMOTE_ADDR'), $matches)) {
 			} else {
@@ -564,12 +578,12 @@ class PKPRequest {
 	 * Strips slashes if necessary, then sanitizes variable as per Core::cleanVar().
 	 * @param $var mixed
 	 */
-	function cleanUserVar(&$var, $stripHtml = false) {
+	function cleanUserVar(&$var) {
 		$_this =& PKPRequest::_checkThis();
 
 		if (isset($var) && is_array($var)) {
 			foreach ($var as $key => $value) {
-				$_this->cleanUserVar($var[$key], $stripHtml);
+				$_this->cleanUserVar($var[$key]);
 			}
 		} else if (isset($var)) {
 			$var = Core::cleanVar(get_magic_quotes_gpc() ? stripslashes($var) : $var);
@@ -609,7 +623,7 @@ class PKPRequest {
 
 	/**
 	 * Redirect to the specified page within a PKP Application.
-	 * Shorthand for a common call to $request->redirect($router->url(...)).
+	 * Shorthand for a common call to $request->redirect($dispatcher->url($request, ROUTE_PAGE, ...)).
 	 * @param $context Array The optional contextual paths
 	 * @param $page string The name of the op to redirect to.
 	 * @param $op string optional The name of the op to redirect to.
@@ -619,9 +633,8 @@ class PKPRequest {
 	 */
 	function redirect($context = null, $page = null, $op = null, $path = null, $params = null, $anchor = null) {
 		$_this =& PKPRequest::_checkThis();
-
-		$router =& $_this->getRouter();
-		$_this->redirectUrl($router->url($_this, $context, $page, $op, $path, $params, $anchor));
+		$dispatcher =& $_this->getDispatcher();
+		$_this->redirectUrl($dispatcher->url($_this, ROUTE_PAGE, $context, $page, $op, $path, $params, $anchor));
 	}
 
 	/**
@@ -692,9 +705,8 @@ class PKPRequest {
 	 * with static calls to PKPRequest.
 	 *
 	 * If it is called non-statically then it will simply
-	 * return $this. Otherwise it will issue a deprecation
-	 * warning and expect a global singleton instance in the
-	 * registry that will be returned instead.
+	 * return $this. Otherwise a global singleton instance
+	 * from the registry will be returned instead.
 	 *
 	 * NB: This method is protected and may not be used by
 	 * external classes. It should also only be used in legacy
@@ -706,15 +718,14 @@ class PKPRequest {
 		if (isset($this) && is_a($this, 'PKPRequest')) {
 			return $this;
 		} else {
-			// We have to use a static variable here as
-			// this deprecated call is static itself.
-			static $deprecationWarning = null;
-			if (is_null($deprecationWarning)) {
-				$deprecationWarning = Config::getVar('debug', 'deprecation_warnings');
-				if (is_null($deprecationWarning)) $deprecationWarning = false;
-			}
-			if ($deprecationWarning) trigger_error('Deprecated static function call');
-
+			// This call is deprecated. We don't trigger a
+			// deprecation error, though, as there are so
+			// many instances of this error that it has a
+			// performance impact and renders the error
+			// log virtually useless when deprecation
+			// warnings are switched on.
+			// FIXME: Fix enough instances of this error so that
+			// we can put a deprecation warning in here.
 			$instance =& Registry::get('request');
 			assert(!is_null($instance));
 			return $instance;
@@ -735,13 +746,15 @@ class PKPRequest {
 	 * @return mixed depends on the called method
 	 */
 	function &_delegateToRouter($method) {
+		// This call is deprecated. We don't trigger a
+		// deprecation error, though, as there are so
+		// many instances of this error that it has a
+		// performance impact and renders the error
+		// log virtually useless when deprecation
+		// warnings are switched on.
+		// FIXME: Fix enough instances of this error so that
+		// we can put a deprecation warning in here.
 		$_this =& PKPRequest::_checkThis();
-		if (is_null($_this->_deprecationWarning)) {
-			$_this->_deprecationWarning = Config::getVar('debug', 'deprecation_warnings');
-			if (is_null($_this->_deprecationWarning)) $_this->_deprecationWarning = false;
-		}
-		if ($_this->_deprecationWarning) trigger_error('Deprecated function');
-
 		$router =& $_this->getRouter();
 
 		// Construct the method call

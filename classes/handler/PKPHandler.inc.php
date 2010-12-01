@@ -13,8 +13,10 @@
  *
  */
 
-import('handler.validation.HandlerValidator');
-import('handler.validation.HandlerValidatorCustom');
+// FIXME: remove these import statements - handler validators are deprecated.
+import('lib.pkp.classes.handler.validation.HandlerValidator');
+import('lib.pkp.classes.handler.validation.HandlerValidatorRoles');
+import('lib.pkp.classes.handler.validation.HandlerValidatorCustom');
 
 class PKPHandler {
 	/**
@@ -26,18 +28,26 @@ class PKPHandler {
 	/** @var Dispatcher, mainly needed for cross-router url construction */
 	var $_dispatcher;
 
-	/** @var array validation checks for this page*/
-	var $_checks;
+	/** @var array validation checks for this page - deprecated! */
+	var $_checks = array();
+
+	/**
+	 * @var array
+	 *  The value of this variable should look like this:
+	 *  array(
+	 *    ROLE_ID_... => array(...allowed handler operations...),
+	 *    ...
+	 *  )
+	 */
+	var $_roleAssignments = array();
+
+	/** @var AuthorizationDecisionManager authorization decision manager for this handler */
+	var $_authorizationDecisionManager;
 
 	/**
 	 * Constructor
 	 */
 	function PKPHandler() {
-		$this->_checks = array();
-
-		// enforce SSL sitewide
-		$this->addCheck(new HandlerValidatorCustom($this, null, null, null, create_function('$forceSSL, $protocol', 'if ($forceSSL && $protocol != \'https\') Request::redirectSSL(); else return true;'), array(Config::getVar('security', 'force_ssl'), Request::getProtocol())));
-
 	}
 
 	//
@@ -92,20 +102,182 @@ class PKPHandler {
 
 	/**
 	 * Add a validation check to the handler.
+	 *
+	 * NB: deprecated!
+	 *
 	 * @param $handlerValidator HandlerValidator
 	 */
-	function addCheck($handlerValidator) {
+	function addCheck(&$handlerValidator) {
+		// FIXME: Add a deprecation warning once we've refactored
+		// all HandlerValidator occurrences.
 		$this->_checks[] =& $handlerValidator;
 	}
 
 	/**
-	 * Perform request access validation based on security settings.
+	 * Add an authorization policy for this handler which will
+	 * be applied in the authorize() method.
+	 *
+	 * Policies must be added in the class constructor or in the
+	 * subclasses' authorize() method before the parent::authorize()
+	 * call so that PKPHandler::authorize() will be able to enforce
+	 * them.
+	 *
+	 * @param $authorizationPolicy AuthorizationPolicy
+	 * @param $addToTop boolean whether to insert the new policy
+	 *  to the top of the list.
+	 */
+	function addPolicy(&$authorizationPolicy, $addToTop = false) {
+		if (is_null($this->_authorizationDecisionManager)) {
+			// Instantiate the authorization decision manager
+			import('lib.pkp.classes.security.authorization.AuthorizationDecisionManager');
+			$this->_authorizationDecisionManager = new AuthorizationDecisionManager();
+		}
+
+		// Add authorization policies to the authorization decision manager.
+		$this->_authorizationDecisionManager->addPolicy($authorizationPolicy, $addToTop);
+	}
+
+	/**
+	 * Retrieve authorized context objects from the
+	 * decision manager.
+	 * @param $assocType integer any of the ASSOC_TYPE_* constants
+	 * @return mixed
+	 */
+	function &getAuthorizedContextObject($assocType) {
+		assert(is_a($this->_authorizationDecisionManager, 'AuthorizationDecisionManager'));
+		return $this->_authorizationDecisionManager->getAuthorizedContextObject($assocType);
+	}
+
+	/**
+	 * Retrieve the last authorization message from the
+	 * decision manager.
+	 * @return string
+	 */
+	function getLastAuthorizationMessage() {
+		assert(is_a($this->_authorizationDecisionManager, 'AuthorizationDecisionManager'));
+		$authorizationMessages =& $this->_authorizationDecisionManager->getAuthorizationMessages();
+		return end($authorizationMessages);
+	}
+
+	/**
+	 * Add role - operation assignments to the handler.
+	 *
+	 * @param $roleIds integer|array one or more of the ROLE_ID_*
+	 *  constants
+	 * @param $operations string|array a single method name or
+	 *  an array of method names to be assigned.
+	 */
+	function addRoleAssignment($roleIds, $operations) {
+		// Allow single operations to be passed in as scalars.
+		if (!is_array($operations)) $operations = array($operations);
+
+		// Allow single roles to be passed in as scalars.
+		if (!is_array($roleIds)) $roleIds = array($roleIds);
+
+		// Add the given operations to all roles.
+		foreach($roleIds as $roleId) {
+			// Create an empty assignment array if no operations
+			// have been assigned to the given role before.
+			if (!isset($this->_roleAssignments[$roleId])) {
+				$this->_roleAssignments[$roleId] = array();
+			}
+
+			// Merge the new operations with the already assigned
+			// ones for the given role.
+			$this->_roleAssignments[$roleId] = array_merge(
+				$this->_roleAssignments[$roleId],
+				$operations
+			);
+		}
+	}
+
+	/**
+	 * This method returns an assignment of operation names for the
+	 * given role.
+	 *
+	 * @return array assignment for the given role.
+	 */
+	function getRoleAssignment($roleId) {
+		if (!is_null($roleId)) {
+			if (isset($this->_roleAssignments[$roleId])) {
+				return $this->_roleAssignments[$roleId];
+			} else {
+				return null;
+			}
+		}
+	}
+
+	/**
+	 * This method returns an assignment of roles to operation names.
+	 *
+	 * @return array assignments for all roles.
+	 */
+	function getRoleAssignments() {
+		return $this->_roleAssignments;
+	}
+
+	/**
+	 * Authorize this request.
+	 *
+	 * Routers will call this method automatically thereby enforcing
+	 * authorization. This method will be called before the
+	 * validate() method and before passing control on to the
+	 * handler operation.
+	 *
+	 * NB: This method will be called once for every request only.
+	 *
+	 * @param $request Request
+	 * @param $args array request arguments
+	 * @param $roleAssignment array the operation role assignment,
+	 *  see getRoleAssignment() for more details.
+	 * @return boolean
+	 */
+	function authorize(&$request, &$args, $roleAssignments) {
+		// Enforce restricted site access.
+		import('lib.pkp.classes.security.authorization.RestrictedSiteAccessPolicy');
+		$this->addPolicy(new RestrictedSiteAccessPolicy($request), true);
+
+		// Enforce SSL site-wide.
+		import('lib.pkp.classes.security.authorization.HttpsPolicy');
+		$this->addPolicy(new HttpsPolicy($request), true);
+
+		// Make sure that we have a valid decision manager instance.
+		assert(is_a($this->_authorizationDecisionManager, 'AuthorizationDecisionManager'));
+
+		$router =& $request->getRouter();
+		if (is_a($router, 'PKPPageRouter')) {
+			// We have to apply a blacklist approach for page
+			// controllers to maintain backwards compatibility:
+			// Requests are implicitly authorized if no policy
+			// explicitly denies access.
+			$this->_authorizationDecisionManager->setDecisionIfNoPolicyApplies(AUTHORIZATION_PERMIT);
+		} else {
+			// We implement a strict whitelist approach for
+			// all other components: Requests will only be
+			// authorized if at least one policy explicitly
+			// grants access and none denies access.
+			$this->_authorizationDecisionManager->setDecisionIfNoPolicyApplies(AUTHORIZATION_DENY);
+		}
+
+		// Let the authorization decision manager take a decision.
+		$decision = $this->_authorizationDecisionManager->decide();
+		if ($decision == AUTHORIZATION_PERMIT) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * Perform data integrity checks.
 	 *
 	 * This method will be called once for every request only.
 	 *
-	 * NB (non-page controllers only): The component router will call
-	 * this method automatically thereby enforcing validation. This
-	 * method will be call directly before the initialize() method.
+	 * NB: Any kind of authorization check is now deprecated
+	 * within this method. This method is purely meant for data
+	 * integrity checks that do not lead to denial of access
+	 * to resources (e.g. via redirect) like handler operations
+	 * or data objects.
 	 *
 	 * @param $requiredContexts array
 	 * @param $request Request
@@ -113,43 +285,31 @@ class PKPHandler {
 	function validate($requiredContexts = null, $request = null) {
 		// FIXME: for backwards compatibility only - remove when request/router refactoring complete
 		if (!isset($request)) {
-			if (Config::getVar('debug', 'deprecation_warnings')) trigger_error('Deprecated function call.');
+			// FIXME: Trigger a deprecation warning when enough instances of this
+			// call have been fixed to not clutter the error log.
 			$request =& Registry::get('request');
 		}
 
 		foreach ($this->_checks as $check) {
+			// Using authorization checks in the validate() method is deprecated
+			// FIXME: Trigger a deprecation warning.
+
 			// WARNING: This line is for PHP4 compatibility when
 			// instantiating handlers without reference. Should not
 			// be removed or otherwise used.
 			// See <http://pkp.sfu.ca/wiki/index.php/Information_for_Developers#Use_of_.24this_in_the_constructor>
-			// for a similar proplem.
+			// for a similar problem.
 			$check->_setHandler($this);
 
 			// check should redirect on fail and continue on pass
 			// default action is to redirect to the index page on fail
 			if ( !$check->isValid() ) {
-				$router =& $request->getRouter();
-				if (is_a($router, 'PKPPageRouter')) {
-					if ( $check->redirectToLogin ) {
-						Validation::redirectLogin();
-					} else {
-						// An unauthorized page request will be re-routed
-						// to the index page.
-						$request->redirect(null, 'index');
-					}
+				if ( $check->redirectToLogin ) {
+					Validation::redirectLogin();
 				} else {
-					// Sub-controller requests should always be sufficiently
-					// authorized and valid when being called from a
-					// page. Otherwise we either hit a development error
-					// or somebody is trying to fake component calls.
-					// In both cases raising a fatal error is appropriate.
-					// NB: The check's redirection flag will be ignored
-					// for sub-controller requests.
-					if (!empty($check->message)) {
-						fatalError($check->message);
-					} else {
-						fatalError('Unauthorized access!');
-					}
+					// An unauthorized page request will be re-routed
+					// to the index page.
+					$request->redirect(null, 'index');
 				}
 			}
 		}
@@ -165,8 +325,9 @@ class PKPHandler {
 	 * authorization.
 	 *
 	 * @param $request PKPRequest
+	 * @param $args array
 	 */
-	function initialize(&$request) {
+	function initialize(&$request, $args = null) {
 		// Set the controller id to the requested
 		// page (page routing) or component name
 		// (component routing) by default.
@@ -224,7 +385,7 @@ class PKPHandler {
 		if ($context) $count = $context->getSetting('itemsPerPage');
 		if (!isset($count)) $count = Config::getVar('interface', 'items_per_page');
 
-		import('db.DBResultRange');
+		import('lib.pkp.classes.db.DBResultRange');
 
 		if (isset($count)) $returner = new DBResultRange($count, $pageNum);
 		else $returner = new DBResultRange(-1, -1);
@@ -260,21 +421,12 @@ class PKPHandler {
 
 	/**
 	 * Get a list of pages that don't require login, even if the system does
+	 * FIXME: Delete this method when authorization re-factoring is complete.
 	 * @return array
 	 */
 	function getLoginExemptions() {
-		return array('user', 'login', 'help');
-	}
-
-	/**
-	 * This method returns all operation names that can be called from remote.
-	 * FIXME: Currently only used for component handlers. Use this for page
-	 *  handlers as well and remove the page-specific index.php whitelist.
-	 */
-	function getRemoteOperations() {
-		// Whitelist approach: by default we don't
-		// allow any remote access at all.
-		return array();
+		import('lib.pkp.classes.security.authorization.RestrictedSiteAccessPolicy');
+		return RestrictedSiteAccessPolicy::_getLoginExemptions();
 	}
 }
 

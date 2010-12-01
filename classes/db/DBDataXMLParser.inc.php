@@ -16,7 +16,7 @@
 // $Id$
 
 
-import('xml.XMLParser');
+import('lib.pkp.classes.xml.XMLParser');
 
 class DBDataXMLParser {
 
@@ -54,6 +54,7 @@ class DBDataXMLParser {
 	function parseData($file) {
 		$this->sql = array();
 		$tree = $this->parser->parse($file);
+		$allTables =& $this->dbconn->MetaTables();
 		if ($tree !== false) {
 			foreach ($tree->getChildren() as $table) {
 				if ($table->getName() == 'table') {
@@ -61,43 +62,36 @@ class DBDataXMLParser {
 
 					// Match table element
 					foreach ($table->getChildren() as $row) {
-						if ($row->getName() == 'field_default') {
-							// Match a default field element
-							$fieldName = $row->getAttribute('name');
-							$value = $row->getValue();
-							if ($value === null || $row->getAttribute('null') == 1) {
-								$value = 'NULL';
-							} else if (!is_numeric($value)) {
-								$value = $this->quoteString($value);
-							}
-							$fieldDefaultValues[$fieldName] = $value;
+						switch ($row->getName()) {
+							case 'field_default':
+								// Match a default field element
+								list($fieldName, $value) = $this->_getFieldData($row);
+								$fieldDefaultValues[$fieldName] = $value;
+								break;
 
-						} else if ($row->getName() == 'row') {
-							// Match a row element
-							$fieldValues = array();
+							case 'row':
+								// Match a row element
+								$fieldValues = array();
 
-							foreach ($row->getChildren() as $field) {
-								// Get the field names and values for this INSERT
-								$fieldName = $field->getAttribute('name');
-								$value = $field->getValue();
-								if ($value === null || $field->getAttribute('null') == 1) {
-									$value = 'NULL';
-								} else if (!is_numeric($value)) {
-									$value = $this->quoteString($value);
+								foreach ($row->getChildren() as $field) {
+									// Get the field names and values for this INSERT
+									list($fieldName, $value) = $this->_getFieldData($field);
+									$fieldValues[$fieldName] = $value;
 								}
-								$fieldValues[$fieldName] = $value;
-							}
 
-							$fieldValues = array_merge($fieldDefaultValues, $fieldValues);
+								$fieldValues = array_merge($fieldDefaultValues, $fieldValues);
 
-							if (count($fieldValues) > 0) {
-								$this->sql[] = sprintf(
-										'INSERT INTO %s (%s) VALUES (%s)',
-										$table->getAttribute('name'),
-										join(', ', array_keys($fieldValues)),
-										join(', ', array_values($fieldValues))
-									);
-							}
+								if (count($fieldValues) > 0) {
+									$this->sql[] = sprintf(
+											'INSERT INTO %s (%s) VALUES (%s)',
+											$table->getAttribute('name'),
+											join(', ', array_keys($fieldValues)),
+											join(', ', array_values($fieldValues)));
+								}
+								break;
+
+							default:
+								assert(false);
 						}
 					}
 
@@ -126,26 +120,48 @@ class DBDataXMLParser {
 							$column = $query->getAttribute('column');
 							$to = $query->getAttribute('to');
 							if ($column) {
-								$columns =& $this->dbconn->MetaColumns($table, true);
-								$colId = strtoupper($column);
-								$flds = '';
-								if (isset($columns[$colId])) {
-									$col = $columns[$colId];
-									if ($col->max_length == "-1") {
-										$max_length = '';
-									} else {
-										$max_length = $col->max_length;
-									} 
-									$fld = array('NAME' => $col->name, 'TYPE' => $dbdict->MetaType($col), 'SIZE' => $max_length);
-									if ($col->primary_key) $fld['KEY'] = 'KEY';
-									if ($col->auto_increment) $fld['AUTOINCREMENT'] = 'AUTOINCREMENT';
-									if ($col->not_null) $fld['NOTNULL'] = 'NOTNULL';
-									if ($col->has_default) $fld['DEFAULT'] = $col->default_value;
-									$flds = array($colId => $fld);
+								// Make sure the target column does not yet exist.
+								// This is to guarantee idempotence of upgrade scripts.
+								$run = false;
+								if (in_array($table, $allTables)) {
+									$columns =& $this->dbconn->MetaColumns($table, true);
+									if (!isset($columns[strtoupper($to)])) {
+										// Only run if the column has not yet been
+										// renamed.
+										$run = true;
+									}
+								} else {
+									// If the target table does not exist then
+									// we assume that another rename entry will still
+									// rename it and we should run after it.
+									$run = true;
 								}
-								$this->sql[] = $dbdict->RenameColumnSQL($table, $column, $to, $flds);
+
+								if ($run) {
+									$colId = strtoupper($column);
+									$flds = '';
+									if (isset($columns[$colId])) {
+										$col = $columns[$colId];
+										if ($col->max_length == "-1") {
+											$max_length = '';
+										} else {
+											$max_length = $col->max_length;
+										}
+										$fld = array('NAME' => $col->name, 'TYPE' => $dbdict->MetaType($col), 'SIZE' => $max_length);
+										if ($col->primary_key) $fld['KEY'] = 'KEY';
+										if ($col->auto_increment) $fld['AUTOINCREMENT'] = 'AUTOINCREMENT';
+										if ($col->not_null) $fld['NOTNULL'] = 'NOTNULL';
+										if ($col->has_default) $fld['DEFAULT'] = $col->default_value;
+										$flds = array($colId => $fld);
+									}
+									$this->sql[] = $dbdict->RenameColumnSQL($table, $column, $to, $flds);
+								}
 							} else {
-								$this->sql[] = $dbdict->RenameTableSQL($table, $to);
+								// Make sure the target table does not yet exist.
+								// This is to guarantee idempotence of upgrade scripts.
+								if (!in_array($to, $allTables)) {
+									$this->sql[] = $dbdict->RenameTableSQL($table, $to);
+								}
 							}
 						} else {
 							$driver = $query->getAttribute('driver');
@@ -200,6 +216,49 @@ class DBDataXMLParser {
 	function destroy() {
 		$this->parser->destroy();
 		unset($this);
+	}
+
+
+	//
+	// Private helper methods
+	//
+	/**
+	 * retrieve a field name and value from a field node
+	 * @param $fieldNode XMLNode
+	 * @return array an array with two entries: the field
+	 *  name and the field value
+	 */
+	function _getFieldData($fieldNode) {
+		$fieldName = $fieldNode->getAttribute('name');
+		$fieldValue = $fieldNode->getValue();
+
+		// Is this field empty? If so: do we want NULL or
+		// an empty string?
+		$isEmpty = $fieldNode->getAttribute('null');
+		if (!is_null($isEmpty)) {
+			assert(is_null($fieldValue));
+			switch($isEmpty) {
+				case 1:
+					$fieldValue = null;
+					break;
+
+				case 0:
+					$fieldValue = '';
+					break;
+			}
+		}
+
+		// Translate null to 'NULL' for SQL use.
+		if (is_null($fieldValue)) {
+			$fieldValue = 'NULL';
+		} else {
+			// Quote the value.
+			if (!is_numeric($fieldValue)) {
+				$fieldValue = $this->quoteString($fieldValue);
+			}
+		}
+
+		return array($fieldName, $fieldValue);
 	}
 }
 

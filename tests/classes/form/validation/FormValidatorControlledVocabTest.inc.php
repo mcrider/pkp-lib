@@ -13,8 +13,8 @@
  * @brief Test class for FormValidatorControlledVocab.
  */
 
-import('tests.PKPTestCase');
-import('form.Form');
+import('lib.pkp.tests.PKPTestCase');
+import('lib.pkp.classes.form.Form');
 
 class FormValidatorControlledVocabTest extends PKPTestCase {
 	/**
@@ -26,14 +26,14 @@ class FormValidatorControlledVocabTest extends PKPTestCase {
 		$form = new Form('some template');
 
 		// Mock a ControlledVocab object
-		import('controlledVocab.ControlledVocab');
+		import('lib.pkp.classes.controlledVocab.ControlledVocab');
 		$mockControlledVocab = $this->getMock('ControlledVocab', array('enumerate'));
 		$mockControlledVocab->setId(1);
 		$mockControlledVocab->setAssocType(ASSOC_TYPE_CITATION);
 		$mockControlledVocab->setAssocId(333);
 		$mockControlledVocab->setSymbolic('testVocab');
 
-	    // Set up the mock enumerate() method
+		// Set up the mock enumerate() method
 		$mockControlledVocab->expects($this->any())
 		                    ->method('enumerate')
 		                    ->will($this->returnValue(array(1 => 'vocab1', 2 => 'vocab2')));
@@ -41,7 +41,7 @@ class FormValidatorControlledVocabTest extends PKPTestCase {
 		// Mock the ControlledVocabDAO
 		$mockControlledVocabDAO = $this->getMock('ControlledVocabDAO', array('getBySymbolic'));
 
-	    // Set up the mock getBySymbolic() method
+		// Set up the mock getBySymbolic() method
 		$mockControlledVocabDAO->expects($this->any())
 		                       ->method('getBySymbolic')
 		                       ->with('testVocab', ASSOC_TYPE_CITATION, 333)

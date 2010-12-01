@@ -13,7 +13,7 @@
  * @brief Validation check for email addresses.
  */
 
-import('validation.ValidatorRegExp');
+import('lib.pkp.classes.validation.ValidatorRegExp');
 
 class ValidatorEmail extends ValidatorRegExp {
 	/**
@@ -28,7 +28,8 @@ class ValidatorEmail extends ValidatorRegExp {
 	// Public static methods
 	//
 	/**
-	 * @see ValidatorUri::getRegexp()
+	 * Return the regex for an email check. This can be called
+	 * statically.
 	 * @return string
 	 */
 	function getRegexp() {

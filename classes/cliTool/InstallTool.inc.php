@@ -15,10 +15,10 @@
 // $Id$
 
 
-import('install.Install');
-import('install.form.InstallForm');
-import('site.Version');
-import('site.VersionCheck');
+import('classes.install.Install');
+import('classes.install.form.InstallForm');
+import('lib.pkp.classes.site.Version');
+import('lib.pkp.classes.site.VersionCheck');
 
 class InstallTool extends CommandLineTool {
 
@@ -125,9 +125,9 @@ class InstallTool extends CommandLineTool {
 		$this->printTitle('installer.administratorAccount');
 		$this->readParam('adminUsername', 'user.username');
 		@`/bin/stty -echo`;
-		$this->readParam('adminPassword', 'user.password');
-		printf("\n");
 		do {
+			$this->readParam('adminPassword', 'user.password');
+			printf("\n");
 			$this->readParam('adminPassword2', 'user.register.repeatPassword');
 			printf("\n");
 		} while ($this->params['adminPassword'] != $this->params['adminPassword2']);

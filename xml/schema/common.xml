@@ -44,7 +44,25 @@
 		</field>
 		<field name="product_type" type="C2" size="30"/>
 		<field name="product" type="C2" size="30"/>
+		<field name="product_class_name" type="C2" size="80"/>
+		<field name="lazy_load" type="I1">
+			<NOTNULL/>
+			<DEFAULT VALUE="0"/>
+		</field>
+		<field name="sitewide" type="I1">
+			<NOTNULL/>
+			<DEFAULT VALUE="0"/>
+		</field>
 		<descr>Installation and upgrade version history.</descr>
+		<index name="versions_pkey">
+			<col>product_type</col>
+			<col>product</col>
+			<col>major</col>
+			<col>minor</col>
+			<col>revision</col>
+			<col>build</col>
+			<UNIQUE />
+		</index>
 	</table>
 
 	<!--
@@ -154,7 +172,6 @@
 		</field>
 		<field name="gender" type="C" size="1"/>
 		<field name="initials" type="C2" size="5"/>
-		<field name="affiliation" type="C2" size="255"/>
 		<field name="email" type="C2" size="90">
 			<NOTNULL/>
 		</field>
@@ -162,6 +179,7 @@
 		<field name="phone" type="C2" size="24"/>
 		<field name="fax" type="C2" size="24"/>
 		<field name="mailing_address" type="C2" size="255"/>
+		<field name="billing_address" type="C2" size="255"/>
 		<field name="country" type="C2" size="90"/>
 		<field name="locales" type="C2" size="255"/>
 		<field name="date_last_email" type="T"/>
@@ -550,6 +568,34 @@
 		<descr>Resumption tokens for the OAI protocol interface.</descr>
 		<index name="oai_resumption_tokens_pkey">
 			<col>token</col>
+			<UNIQUE/>
+		</index>
+	</table>
+
+	<!-- Parallel Processing -->
+
+	<!--
+	 *
+	 * TABLE processes
+	 *
+	 -->
+	<table name="processes">
+		<field name="process_id" type="C2" size="23">
+			<NOTNULL />
+		</field>
+		<field name="process_type" type="I1">
+			<NOTNULL/>
+		</field>
+		<field name="time_started" type="I8">
+			<NOTNULL/>
+		</field>
+		<field name="obliterated" type="I1">
+			<NOTNULL/>
+			<DEFAULT VALUE="0"/>
+		</field>
+		<descr>Currently running processes.</descr>
+		<index name="processes_pkey">
+			<col>process_id</col>
 			<UNIQUE/>
 		</index>
 	</table>

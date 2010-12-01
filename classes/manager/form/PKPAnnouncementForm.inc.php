@@ -14,7 +14,7 @@
 
 // $Id$
 
-import('form.Form');
+import('lib.pkp.classes.form.Form');
 
 class PKPAnnouncementForm extends Form {
 	/** @var announcementId int the ID of the announcement being edited */
@@ -152,6 +152,8 @@ class PKPAnnouncementForm extends Form {
 			$announcement->setDatetimePosted(Core::getCurrentDate());
 			$announcementDao->insertAnnouncement($announcement);
 		}
+
+		return $announcement;
 	}
 
 	function _getAnnouncementTypesAssocId() {

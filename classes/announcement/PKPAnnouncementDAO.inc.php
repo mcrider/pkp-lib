@@ -13,7 +13,7 @@
  * @brief Operations for retrieving and modifying Announcement objects.
  */
 
-import('announcement.PKPAnnouncement');
+import('lib.pkp.classes.announcement.PKPAnnouncement');
 
 class PKPAnnouncementDAO extends DAO {
 	/**
@@ -258,6 +258,8 @@ class PKPAnnouncementDAO extends DAO {
 	/**
 	 * Retrieve an array of announcements with no/valid expiry date matching a particular Assoc ID.
 	 * @param $assocType int
+	 * @param $assocId int
+	 * @param $rangeInfo DBResultRange
 	 * @return object DAOResultFactory containing matching Announcements
 	 */
 	function &getAnnouncementsNotExpiredByAssocId($assocType, $assocId, $rangeInfo = null) {

@@ -61,8 +61,8 @@ define ('COMPONENT_ROUTER_PARTS_MAXDEPTH', 5);
 define ('COMPONENT_ROUTER_PARTS_MAXLENGTH', 50);
 define ('COMPONENT_ROUTER_PARTS_MINLENGTH', 2);
 
-import('core.PKPRouter');
-import('core.Request');
+import('lib.pkp.classes.core.PKPRouter');
+import('classes.core.Request');
 
 class PKPComponentRouter extends PKPRouter {
 	//
@@ -89,39 +89,6 @@ class PKPComponentRouter extends PKPRouter {
 		// See whether we can resolve the request to
 		// a valid service endpoint.
 		return is_callable($this->getRpcServiceEndpoint($request));
-	}
-
-	/**
-	 * Routes the given request to a page handler
-	 * @param $request PKPRequest
-	 */
-	function route(&$request) {
-		// Determine the requested service endpoint.
-		$rpcServiceEndpoint =& $this->getRpcServiceEndpoint($request);
-		assert(is_callable($rpcServiceEndpoint));
-
-		// Retrieve RPC arguments from the request.
-		$args =& $request->getUserVars();
-		assert(is_array($args));
-
-		// Remove the caller-parameter (if present)
-		if (isset($args[COMPONENT_ROUTER_PARAMETER_MARKER])) unset($args[COMPONENT_ROUTER_PARAMETER_MARKER]);
-
-		// Authorize and validate the request
-		if (!$rpcServiceEndpoint[0]->validate(null, $request)) {
-			// Components must always validate otherwise this is
-			// either a programming error or somebody trying to
-			// directly call a component. In both cases a fatal
-			// error is the approprate response.
-			fatalError('Permission denied!');
-		}
-
-		// Initialize the handler
-		$rpcServiceEndpoint[0]->initialize($request);
-
-		// Call the service endpoint.
-		$result = call_user_func($rpcServiceEndpoint, $args, $request);
-		echo $result;
 	}
 
 	/**
@@ -215,46 +182,42 @@ class PKPComponentRouter extends PKPRouter {
 			// Construct the component handler file name and test its existence.
 			$component = 'controllers.'.$component;
 			$componentFileName = str_replace('.', '/', $component).'.inc.php';
-			if (!file_exists($componentFileName) && !file_exists('lib/pkp/'.$componentFileName)) {
-				// Request to non-existent handler
-				return $nullVar;
+			switch (true) {
+				case file_exists($componentFileName):
+					break;
+
+				case file_exists('lib/pkp/'.$componentFileName):
+					$component = 'lib.pkp.'.$component;
+					break;
+
+				default:
+					// Request to non-existent handler
+					return $nullVar;
 			}
 
-			// Declare the component handler class.
-			import($component);
+			// We expect the handler to be part of one
+			// of the following packages:
+			$allowedPackages = array(
+				'controllers',
+				'lib.pkp.controllers'
+			);
 
-			// Check that the component class has really been declared
-			$componentClassName = substr($component, strrpos($component, '.') + 1);
-			assert(class_exists($componentClassName));
-
-			//
-			// Operation
-			//
 			// Retrieve requested component operation
 			$op = $this->getRequestedOp($request);
 			assert(!empty($op));
 
-			// Check that the requested operation exists for the handler:
-			// Lowercase comparison for PHP4 compatibility. Also check the required
-			// validate() and initialize() methods.
-			$methods = array_map('strtolower', get_class_methods($componentClassName));
-			foreach(array(strtolower($op), 'validate', 'initialize') as $requiredMethod) {
-				if (!in_array($requiredMethod, $methods)) return $nullVar;
-			}
+			// A handler at least needs to implement the
+			// following methods:
+			$requiredMethods = array(
+				$op, 'authorize', 'validate', 'initialize'
+			);
+
+			$componentInstance =& instantiate($component, 'PKPHandler', $allowedPackages, $requiredMethods);
+			if (!is_object($componentInstance)) return $nullVar;
 
 			//
 			// Callable service endpoint
 			//
-			// Instantiate the handler
-			$componentInstance = new $componentClassName();
-
-			// Check that the component instance really is a handler
-			if (!is_a($componentInstance, 'PKPHandler')) return $nullVar;
-
-			// Check that the requested operation is on the
-			// remote operation whitelist.
-			if (!in_array($op, $componentInstance->getRemoteOperations())) return $nullVar;
-
 			// Construct the callable array
 			$this->_rpcServiceEndpoint = array($componentInstance, $op);
 		}
@@ -262,17 +225,30 @@ class PKPComponentRouter extends PKPRouter {
 		return $this->_rpcServiceEndpoint;
 	}
 
+
+	//
+	// Implement template methods from PKPRouter
+	//
 	/**
-	 * Build a component request URL into PKPApplication.
-	 * @param $request PKPRequest the request to be routed
-	 * @param $context mixed Optional contextual paths
-	 * @param $component string Optional name of page to invoke
-	 * @param $op string Optional name of operation to invoke
-	 * @param $path for compatibility only, not supported for the component router.
-	 * @param $params array Optional set of name => value pairs to pass as user parameters
-	 * @param $anchor string Optional name of anchor to add to URL
-	 * @param $escape boolean Whether or not to escape ampersands for this URL; default false.
-	 * @return string the URL
+	 * @see PKPRouter::route()
+	 */
+	function route(&$request) {
+		// Determine the requested service endpoint.
+		$rpcServiceEndpoint =& $this->getRpcServiceEndpoint($request);
+
+		// Retrieve RPC arguments from the request.
+		$args =& $request->getUserVars();
+		assert(is_array($args));
+
+		// Remove the caller-parameter (if present)
+		if (isset($args[COMPONENT_ROUTER_PARAMETER_MARKER])) unset($args[COMPONENT_ROUTER_PARAMETER_MARKER]);
+
+		// Authorize, validate and initialize the request
+		$this->_authorizeInitializeAndCallRequest($rpcServiceEndpoint, $request, $args);
+	}
+
+	/**
+	 * @see PKPRouter::url()
 	 */
 	function url(&$request, $newContext = null, $component = null, $op = null, $path = null,
 			$params = null, $anchor = null, $escape = false) {
@@ -357,6 +333,29 @@ class PKPComponentRouter extends PKPRouter {
 		}
 
 		return $this->_urlFromParts($baseUrl, $pathInfoArray, $queryParametersArray, $anchor, $escape);
+	}
+
+	/**
+	 * @see PKPRouter::handleAuthorizationFailure()
+	 */
+	function handleAuthorizationFailure($request, $authorizationMessage) {
+		// Translate the authorization error message.
+		if (defined('LOCALE_COMPONENT_APPLICATION_COMMON')) {
+			Locale::requireComponents(array(LOCALE_COMPONENT_APPLICATION_COMMON));
+		}
+		Locale::requireComponents(array(LOCALE_COMPONENT_PKP_USER));
+		$translatedAuthorizationMessage = Locale::translate($authorizationMessage);
+
+		// Add the router name and operation.
+		$url = $request->getRequestUrl();
+		$queryString = $request->getQueryString();
+		if ($queryString) $queryString = '?'.$queryString;
+		$translatedAuthorizationMessage .= ' ['.$url.$queryString.']';
+
+		// Return a JSON error message.
+		import('lib.pkp.classes.core.JSON');
+		$json = new JSON('false', $translatedAuthorizationMessage);
+		return $json->getString();
 	}
 
 

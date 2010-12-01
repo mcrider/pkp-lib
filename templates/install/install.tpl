@@ -181,7 +181,7 @@ function doSubmit() {
 		<td class="value"><input type="password" name="adminPassword" id="adminPassword" value="{$adminPassword|escape}" size="20" maxlength="32" class="textField" /></td>
 	</tr>
 	<tr valign="top">
-		<td class="label">{fieldLabel name="adminPassword2" key="user.register.repeatPassword"}</td>
+		<td class="label">{fieldLabel name="adminPassword2" key="user.repeatPassword"}</td>
 		<td class="value"><input type="password" name="adminPassword2" id="adminPassword2" value="{$adminPassword2|escape}" size="20" maxlength="32" class="textField" /></td>
 	</tr>
 	<tr valign="top">
@@ -266,3 +266,4 @@ function doSubmit() {
 </form>
 
 {include file="common/footer.tpl"}
+

@@ -13,8 +13,8 @@
  * @brief Test class for FormValidatorCaptcha.
  */
 
-import('tests.PKPTestCase');
-import('form.Form');
+import('lib.pkp.tests.PKPTestCase');
+import('lib.pkp.classes.form.Form');
 
 class FormValidatorCaptchaTest extends PKPTestCase {
 	/**
@@ -27,7 +27,7 @@ class FormValidatorCaptchaTest extends PKPTestCase {
 		$form->setData('testCaptchaId', 'test captcha id');
 
 		// Create a test Captcha
-		import('captcha.Captcha');
+		import('lib.pkp.classes.captcha.Captcha');
 		$captcha = new Captcha();
 		$captcha->setValue('expected captcha value');
 		$this->registerMockCaptchaDAO($captcha);
@@ -36,11 +36,11 @@ class FormValidatorCaptchaTest extends PKPTestCase {
 		$validator = new FormValidatorCaptcha($form, 'testData', 'testCaptchaId', 'some.message.key');
 
 		// Test valid captcha
-	    $form->setData('testData', 'expected captcha value');
+		$form->setData('testData', 'expected captcha value');
 		self::assertTrue($validator->isValid());
 
 		// Simulate invalid captcha value
-	    $form->setData('testData', 'unexpected captcha value');
+		$form->setData('testData', 'unexpected captcha value');
 		self::assertFalse($validator->isValid());
 
 		// Simulate invalid captcha id
@@ -53,22 +53,22 @@ class FormValidatorCaptchaTest extends PKPTestCase {
 		// Mock the CaptchaDAO
 		$mockCaptchaDAO = $this->getMock('CaptchaDAO', array('getCaptcha', 'deleteObject'));
 
-	    // Set up the mock getCaptcha() method
+		// Set up the mock getCaptcha() method
 		$mockCaptchaDAO->expects($this->any())
 		               ->method('getCaptcha')
 		               ->with('test captcha id')
 		               ->will($this->returnValue($returnValueForGetCaptcha));
 
-	    // Set up the mock deleteObject() method
-	    if (is_null($returnValueForGetCaptcha)) {
+		// Set up the mock deleteObject() method
+		if (is_null($returnValueForGetCaptcha)) {
 			$mockCaptchaDAO->expects($this->never())
 			               ->method('deleteObject');
-	    } else {
+		} else {
 			$mockCaptchaDAO->expects($this->any())
 			               ->method('deleteObject')
 			               ->with($returnValueForGetCaptcha)
 			               ->will($this->returnValue(true));
-	    }
+		}
 
 		DAORegistry::registerDAO('CaptchaDAO', $mockCaptchaDAO);
 	}

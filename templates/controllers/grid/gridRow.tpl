@@ -9,6 +9,7 @@
 {assign var=rowId value="component-"|concat:$row->getGridId():"-row-":$row->getId()}
 <tr id="{$rowId}">
 	{foreach from=$cells item=cell}
-		{$cell}
+		<td>{$cell}</td>
 	{/foreach}
 </tr>
+

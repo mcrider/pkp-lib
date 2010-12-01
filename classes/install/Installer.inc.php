@@ -12,8 +12,6 @@
  * @brief Base class for install and upgrade scripts.
  */
 
-// $Id$
-
 
 // Database installation files
 define('INSTALLER_DATA_DIR', 'dbscripts/xml');
@@ -25,12 +23,12 @@ define('INSTALLER_ERROR_DB', 2);
 // Default data
 define('INSTALLER_DEFAULT_LOCALE', 'en_US');
 
-import('db.DBDataXMLParser');
-import('site.Version');
-import('site.VersionDAO');
-import('config.ConfigParser');
+import('lib.pkp.classes.db.DBDataXMLParser');
+import('lib.pkp.classes.site.Version');
+import('lib.pkp.classes.site.VersionDAO');
+import('lib.pkp.classes.config.ConfigParser');
 
-require_once('adodb-xmlschema.inc.php'); // FIXME?
+require_once './lib/pkp/lib/adodb/adodb-xmlschema.inc.php';
 
 class Installer {
 
@@ -133,6 +131,7 @@ class Installer {
 	 * @return boolean
 	 */
 	function preInstall() {
+		$this->log('pre-install');
 		if (!isset($this->dbconn)) {
 			// Connect to the database.
 			$conn =& DBConnection::getInstance();
@@ -147,7 +146,7 @@ class Installer {
 		if (!isset($this->currentVersion)) {
 			// Retrieve the currently installed version
 			$versionDao =& DAORegistry::getDAO('VersionDAO');
-			$this->currentVersion =& $versionDao->getCurrentVersion(null, $this->isUpgrade());
+			$this->currentVersion =& $versionDao->getCurrentVersion();
 		}
 
 		if (!isset($this->locale)) {
@@ -203,8 +202,16 @@ class Installer {
 	 * @return boolean
 	 */
 	function postInstall() {
+		$this->log('post-install');
 		$result = true;
 		HookRegistry::call('Installer::postInstall', array(&$this, &$result));
+
+		// Inform users that they'll have to run the update script
+		// after doing a manual installation.
+		if ($this->getParam('manualInstall')) {
+			$this->log(Locale::translate('installer.pleaseUpgradeAfterManualInstall'));
+		}
+
 		return $result;
 	}
 
@@ -244,10 +251,8 @@ class Installer {
 		$versionString = $installTree->getAttribute('version');
 		if (isset($versionString)) {
 			$this->newVersion =& Version::fromString($versionString);
-			$this->newVersion->setCurrent(1);
 		} else {
 			$this->newVersion = $this->currentVersion;
-			$this->newVersion->setCurrent(1);
 		}
 
 		// Parse descriptor
@@ -286,7 +291,7 @@ class Installer {
 		if ($this->newVersion->compare($this->currentVersion) > 0) {
 			if ($this->getParam('manualInstall')) {
 				// FIXME Would be better to have a mode where $dbconn->execute() saves the query
-				return $this->executeSQL(sprintf('INSERT INTO versions (major, minor, revision, build, date_installed, current, product_type, product) VALUES (%d, %d, %d, %d, NOW(), 1, %s,%s)', $this->newVersion->getMajor(), $this->newVersion->getMinor(), $this->newVersion->getRevision(), $this->newVersion->getBuild(), $this->dbconn->qstr($this->newVersion->getProductType()), $this->dbconn->qstr($this->newVersion->getProduct())));
+				return $this->executeSQL(sprintf('INSERT INTO versions (major, minor, revision, build, date_installed, current, product_type, product, product_class_name, lazy_load, sitewide) VALUES (%d, %d, %d, %d, NOW(), 1, %s, %s, %s, %d, %d)', $this->newVersion->getMajor(), $this->newVersion->getMinor(), $this->newVersion->getRevision(), $this->newVersion->getBuild(), $this->dbconn->qstr($this->newVersion->getProductType()), $this->dbconn->qstr($this->newVersion->getProduct()), $this->dbconn->qstr($this->newVersion->getProductClassName()), ($this->newVersion->getLazyLoad()?1:0), ($this->newVersion->getSitewide()?1:0)));
 			} else {
 				$versionDao =& DAORegistry::getDAO('VersionDAO');
 				if (!$versionDao->insertVersion($this->newVersion)) {
@@ -374,7 +379,7 @@ class Installer {
 				$fileName = $action['file'];
 				$this->log(sprintf('schema: %s', $action['file']));
 
-				require_once('adodb-xmlschema.inc.php');
+				require_once './lib/pkp/lib/adodb/adodb-xmlschema.inc.php';
 				$schemaXMLParser = new adoSchema($this->dbconn);
 				$dict =& $schemaXMLParser->dict;
 				$dict->SetCharSet($this->dbconn->charSet);
@@ -390,13 +395,20 @@ class Installer {
 				break;
 			case 'data':
 				$fileName = $action['file'];
-				$this->log(sprintf('data: %s', $action['file']));
+				$condition = isset($action['attr']['condition'])?$action['attr']['condition']:null;
+				$includeAction = true;
+				if ($condition) {
+					$funcName = create_function('$installer,$action', $condition);
+					$includeAction = $funcName($this, $action);
+				}
+				$this->log('data: ' . $action['file'] . ($includeAction?'':' (skipped)'));
+				if (!$includeAction) break;
+
 				$sql = $this->dataXMLParser->parseData($fileName);
+				// We might get an empty SQL if the upgrade script has
+				// been executed before.
 				if ($sql) {
 					return $this->executeSQL($sql);
-				} else {
-					$this->setError(INSTALLER_ERROR_DB, str_replace('{$file}', $fileName, Locale::translate('installer.installParseDBFileError')));
-					return false;
 				}
 				break;
 			case 'code':
@@ -406,9 +418,9 @@ class Installer {
 					require_once($action['file']);
 				}
 				if (isset($action['attr']['class'])) {
-					return call_user_func(array($action['attr']['class'], $action['attr']['function']), $this);
+					return call_user_func(array($action['attr']['class'], $action['attr']['function']), $this, $action['attr']);
 				} else {
-					return call_user_func(array(&$this, $action['attr']['function']));
+					return call_user_func(array(&$this, $action['attr']['function']), $this, $action['attr']);
 				}
 				break;
 			case 'note':
@@ -596,13 +608,131 @@ class Installer {
 		$cacheManager->flush(null, CACHE_TYPE_OBJECT);
 		return true;
 	}
-	
+
 	/**
 	 * Set the current version for this installer.
 	 * @var $version Version
 	 */
 	function setCurrentVersion(&$version) {
 		$this->currentVersion = $version;
+	}
+
+	/**
+	 * For upgrade: install email templates and data
+	 * @param $installer object
+	 * @param $attr array Attributes: array containing
+	 * 		'key' => 'EMAIL_KEY_HERE',
+	 * 		'locales' => 'en_US,fr_CA,...'
+	 */
+	function installEmailTemplate($installer, $attr) {
+		$emailTemplateDao =& DAORegistry::getDAO('EmailTemplateDAO');
+		$emailTemplateDao->installEmailTemplates($emailTemplateDao->getMainEmailTemplatesFilename(), false, $attr['key']);
+		foreach (explode(',', $attr['locales']) as $locale) {
+			$emailTemplateDao->installEmailTemplateData($emailTemplateDao->getMainEmailTemplateDataFilename($locale), false, $attr['key']);
+		}
+		return true;
+	}
+
+	/**
+	 * Install the given filter configuration file.
+	 * @param $filterConfigFile string
+	 * @return boolean true when successful, otherwise false
+	 */
+	function installFilterConfig($filterConfigFile) {
+		static $filterHelper = false;
+
+		// Parse the filter configuration.
+		$xmlParser = new XMLParser();
+		$tree =& $xmlParser->parse($filterConfigFile);
+
+		// Validate the filter configuration.
+		if (!$tree) {
+			$xmlParser->destroy();
+			return false;
+		}
+
+		// Get the filter helper.
+		if ($filterHelper === false) {
+			import('lib.pkp.classes.filter.FilterHelper');
+			$filterHelper = new FilterHelper();
+		}
+
+		// Are there any filter groups to be installed?
+		$filterGroupsNode =& $tree->getChildByName('filterGroups');
+		if (is_a($filterGroupsNode, 'XMLNode')) {
+			$filterHelper->installFilterGroups($filterGroupsNode);
+		}
+
+		// Are there any filters to be installed?
+		$filtersNode =& $tree->getChildByName('filters');
+		if (is_a($filtersNode, 'XMLNode')) {
+			foreach ($filtersNode->getChildren() as $filterNode) { /* @var $filterNode XMLNode */
+				$filterHelper->configureFilter($filterNode);
+			}
+		}
+
+		// Get rid of the parser.
+		$xmlParser->destroy();
+		unset($xmlParser);
+
+		return true;
+	}
+
+	/**
+	 * Check to see whether a column exists.
+	 * Used in installer XML in conditional checks on <data> nodes.
+	 * @param $tableName string
+	 * @param $columnName string
+	 * @return boolean
+	 */
+	function columnExists($tableName, $columnName) {
+		$siteDao =& DAORegistry::getDAO('SiteDAO');
+		$dict = NewDataDictionary($siteDao->_dataSource);
+
+		// Make sure the table exists
+		$tables = $dict->MetaTables('TABLES', false);
+		if (!in_array($tableName, $tables)) return false;
+
+		// Check to see whether it contains the specified column.
+		// Oddly, MetaColumnNames doesn't appear to be available.
+		$columns = $dict->MetaColumns($tableName);
+		foreach ($columns as $column) {
+			if ($column->name == $columnName) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Insert or update plugin data in versions
+	 * and plugin_settings tables.
+	 * @return boolean
+	 */
+	function addPluginVersions() {
+		$versionDao =& DAORegistry::getDAO('VersionDAO');
+		import('lib.pkp.classes.site.VersionCheck');
+		$categories = PluginRegistry::getCategories();
+		foreach ($categories as $category) {
+			PluginRegistry::loadCategory($category);
+			$plugins = PluginRegistry::getPlugins($category);
+			if (is_array($plugins)) {
+				foreach ($plugins as $plugin) {
+					$versionFile = $plugin->getPluginPath() . '/version.xml';
+
+					if (FileManager::fileExists($versionFile)) {
+						$versionInfo =& VersionCheck::parseVersionXML($versionFile);
+						$pluginVersion = $versionInfo['version'];
+					} else {
+						$pluginVersion = new Version(
+							1, 0, 0, 0, Core::getCurrentDate(), 1,
+							'plugins.'.$category, basename($plugin->getPluginPath()), '', 0
+						);
+					}
+					$versionDao->insertVersion($pluginVersion, true);
+				}
+			}
+		}
+
+		return true;
 	}
 }
 

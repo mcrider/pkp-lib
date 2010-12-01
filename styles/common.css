@@ -5,8 +5,6 @@
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
  *
  * PKP-wide shared stylesheet.
- *
- * $Id$
  */
 
 /**
@@ -24,6 +22,10 @@ body {
 
 div {
 	text-align: left;
+}
+
+p {
+	margin: 1em 0; /* Making default stylesheet explicit - fixes IE7 margin collapsing. */
 }
 
 table {
@@ -256,7 +258,6 @@ span.highlight {
 .nowrap {
 	white-space: nowrap;
 }
-
 
 /**
  * Table styles

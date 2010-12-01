@@ -17,14 +17,12 @@
  * Currently integrated with Smarty (from http://smarty.php.net/).
  */
 
-// $Id$
-
 
 /* This definition is required by Smarty */
 define('SMARTY_DIR', Core::getBaseDir() . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'pkp' . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'smarty' . DIRECTORY_SEPARATOR);
 
-require_once('Smarty.class.php');
-require_once('plugins/modifier.escape.php'); // Seems to be needed?
+require_once('./lib/pkp/lib/smarty/Smarty.class.php');
+require_once('./lib/pkp/lib/smarty/plugins/modifier.escape.php'); // Seems to be needed?
 
 define('CACHEABILITY_NO_CACHE',		'no-cache');
 define('CACHEABILITY_NO_STORE',		'no-store');
@@ -32,9 +30,15 @@ define('CACHEABILITY_PUBLIC',		'public');
 define('CACHEABILITY_MUST_REVALIDATE',	'must-revalidate');
 define('CACHEABILITY_PROXY_REVALIDATE',	'proxy-revalidate');
 
+define('CDN_JQUERY_VERSION', '1.4.2');
+define('CDN_JQUERY_UI_VERSION', '1.8.1');
+
 class PKPTemplateManager extends Smarty {
 	/** @var $styleSheets array of URLs to stylesheets */
 	var $styleSheets;
+
+	/** @var $javaScripts array of URLs to javascript files */
+	var $javaScripts;
 
 	/** @var $initialized Kludge because of reference problems with
 	    TemplateManager::getManager() invoked during constructor process */
@@ -80,9 +84,13 @@ class PKPTemplateManager extends Smarty {
 		// Assign common variables
 		$this->styleSheets = array();
 		$this->assign_by_ref('stylesheets', $this->styleSheets);
+
+		$this->javaScripts = array();
+
 		$this->cacheability = CACHEABILITY_NO_STORE; // Safe default
 
 		$this->assign('defaultCharset', Config::getVar('i18n', 'client_charset'));
+		$this->assign('basePath', $request->getBasePath());
 		$this->assign('baseUrl', $request->getBaseUrl());
 		$this->assign('requiresFormRequest', $request->isPost());
 		if (is_a($router, 'PKPPageRouter')) $this->assign('requestedPage', $router->getRequestedPage($request));
@@ -133,12 +141,13 @@ class PKPTemplateManager extends Smarty {
 		$this->register_function('display_template', array(&$this, 'smartyDisplayTemplate'));
 		$this->register_modifier('truncate', array(&$this, 'smartyTruncate'));
 		// JS UI components
-		$this->register_function('load_div', array(&$this, 'smartyLoadUrlInDiv'));
 		$this->register_function('modal', array(&$this, 'smartyModal'));
 		$this->register_function('confirm', array(&$this, 'smartyConfirm'));
+		$this->register_function('confirm_submit', array(&$this, 'smartyConfirmSubmit'));
 		$this->register_function('ajax_upload', array(&$this, 'smartyAjaxUpload'));
 		$this->register_function('init_tabs', array(&$this, 'smartyInitTabs'));
-		
+		$this->register_function('modal_title', array(&$this, 'smartyModalTitle'));
+
 		// register the resource name "core"
 		$this->register_resource("core", array(array(&$this, 'smartyResourceCoreGetTemplate'),
 											array(&$this, 'smartyResourceCoreGetTimestamp'),
@@ -157,12 +166,24 @@ class PKPTemplateManager extends Smarty {
 			 */
 			$this->assign('isUserLoggedIn', Validation::isLoggedIn());
 
-			$versionDAO =& DAORegistry::getDAO('VersionDAO');
-			$currentVersion = $versionDAO->getCurrentVersion();
+			$application =& PKPApplication::getApplication();
+			$currentVersion =& $application->getCurrentVersion();
 			$this->assign('currentVersionString', $currentVersion->getVersionString());
 
 			$this->assign('itemsPerPage', Config::getVar('interface', 'items_per_page'));
 			$this->assign('numPageLinks', Config::getVar('interface', 'page_links'));
+
+			$user =& $request->getUser();
+			if ($user) {
+				$notificationDao =& DAORegistry::getDAO('NotificationDAO');
+				$notifications =& $notificationDao->getNotificationsByUserId($user->getId(), NOTIFICATION_LEVEL_TRIVIAL);
+				$notificationsArray =& $notifications->toArray();
+				unset($notifications);
+				foreach ($notificationsArray as $notification) {
+					$notificationDao->deleteNotificationById($notification->getId());
+				}
+				$this->assign('systemNotifications', $notificationsArray);
+			}
 		}
 
 		$this->initialized = false;
@@ -187,26 +208,74 @@ class PKPTemplateManager extends Smarty {
 		$this->cacheability = $cacheability;
 	}
 
+	/**
+	 * Initialize the template.
+	 */
 	function initialize() {
 		// This code cannot be called in the constructor because of
 		// reference problems, i.e. callers that need getManager fail.
 
-		// Load the block plugins.
-		$plugins =& PluginRegistry::loadCategory('blocks');
+		// Load enabled block plugins.
+		$plugins =& PluginRegistry::loadCategory('blocks', true);
 
 		$this->initialized = true;
 	}
 
+	/**
+	 * Add a page-specific style sheet.
+	 * @param $url string the URL to the style sheet
+	 */
 	function addStyleSheet($url) {
 		array_push($this->styleSheets, $url);
 	}
 
 	/**
-	 * Display the template.
+	 * Add a page-specific script.
+	 * @param $url string the URL to be included
 	 */
-	function display($template, $sendContentType = 'text/html', $hookName = 'TemplateManager::display') {
+	function addJavaScript($url) {
+		array_push($this->javaScripts, $url);
+	}
+
+	/**
+	 * @see Smarty::fetch()
+	 */
+	function fetch($resource_name, $cache_id = null, $compile_id = null, $display = false) {
 		if (!$this->initialized) {
 			$this->initialize();
+		}
+
+		// Add additional java script URLs
+		if (!empty($this->javaScripts)) {
+			$baseUrl = $this->get_template_vars('baseUrl');
+			$scriptOpen = '	<script language="javascript" type="text/javascript" src="';
+			$scriptClose = '"></script>';
+			$javaScript = '';
+			foreach ($this->javaScripts as $script) {
+				$javaScript .= $scriptOpen . $baseUrl . '/' . $script . $scriptClose . "\n";
+			}
+
+			$additionalHeadData = $this->get_template_vars('additionalHeadData');
+			$this->assign('additionalHeadData', $additionalHeadData."\n".$javaScript);
+
+			// Empty the java scripts array so that we don't include
+			// the same scripts twice in case the template manager is called again.
+			$this->javaScripts = array();
+		}
+		return parent::fetch($resource_name, $cache_id, $compile_id, $display);
+	}
+
+	/**
+	 * Display the template.
+	 */
+	function display($template, $sendContentType = null, $hookName = null, $display = true) {
+		// Set the defaults
+		// N.B: This was moved from method signature to allow calls such as: ->display($template, null, null, false)
+		if ( is_null($sendContentType) ) {
+			$sendContentType = 'text/html';
+		}
+		if ( is_null($hookName) ) {
+			$hookName = 'TemplateManager::display';
 		}
 
 		$charset = Config::getVar('i18n', 'client_charset');
@@ -231,7 +300,7 @@ class PKPTemplateManager extends Smarty {
 			}
 
 			// Actually display the template.
-			parent::display($template);
+			return $this->fetch($template, null, null, $display);
 		} else {
 			// Display the results of the plugin.
 			echo $output;
@@ -539,7 +608,18 @@ class PKPTemplateManager extends Smarty {
 	}
 
 	/**
-	 * Generate a URL into a PKPApp. (This is a wrapper around Dispatcher::url() to make it available to Smarty templates.)
+	 * Generate a URL into a PKPApp.
+	 * @param $params array
+	 * @param $smarty object
+	 * Available parameters:
+	 * - router: which router to use
+	 * - context
+	 * - page
+	 * - component
+	 * - op
+	 * - path (array)
+	 * - anchor
+	 * - escape (default to true unless otherwise specified)
 	 */
 	function smartyUrl($params, &$smarty) {
 		if ( !isset($params['context']) ) {
@@ -772,7 +852,7 @@ class PKPTemplateManager extends Smarty {
 				$string = $this->_removeTags($string, $tags, false, $length);
 			}
 			$length -= min($length, String::strlen($etc));
-			if (!$middle) {        	
+			if (!$middle) {
 				if(!$break_words) {
 					$string = String::regexp_replace('/\s+?(\S+)?$/', '', String::substr($string, 0, $length+1));
 				} else $string = String::substr($string, 0, $length+1);
@@ -801,7 +881,7 @@ class PKPTemplateManager extends Smarty {
 					if ($skip_tags) {
 						$firstHalf = $this->_reinsertTags($firstHalf, $tags);
 						$secondHalf = $this->reinsertTags($secondHalf, $tagsReverse, strlen($string));
-						return $this->_closeTags($firstHalf) . $etc . $this->_closeTags($secondHalf, true);  
+						return $this->_closeTags($firstHalf) . $etc . $this->_closeTags($secondHalf, true);
 					} else {
 						return $firstHalf . $etc . $secondHalf;
 					}
@@ -857,7 +937,7 @@ class PKPTemplateManager extends Smarty {
 	 * Removes tags from the back of the string and keeps a record of their position from the back
 	 * @author Matt Crider
 	 * @param string
-	 * @param int loc Keeps track of position from the back of original string 
+	 * @param int loc Keeps track of position from the back of original string
 	 * @param array
 	 * @param int
 	 * @return string
@@ -875,7 +955,7 @@ class PKPTemplateManager extends Smarty {
 				}
 				$tag = '<' . $tag;
 				$openBrack++;
-			
+
 				$tags[] = array($tag, $loc);
 				return $this->_removeTagsAuxReverse(String::substr($string, 0, -$openBrack), $loc+$openBrack, $tags, $length);
 			}
@@ -894,7 +974,7 @@ class PKPTemplateManager extends Smarty {
 	 */
 	function _reinsertTags($string, &$tags, $reverse = false) {
 		if(empty($tags)) return $string;
-		
+
 		for($i = 0; $i < count($tags); $i++) {
 			$length = String::strlen($string);
 			if ($tags[$i][1] < String::strlen($string)) {
@@ -909,14 +989,14 @@ class PKPTemplateManager extends Smarty {
 				}
 			}
 		}
-	
+
 		return $string;
 	}
 
 	/**
 	 * Helper function: Closes all dangling XHTML tags in a string
 	 * Modified from http://milianw.de/code-snippets/close-html-tags
-	 *  by Milian Wolff <mail@milianw.de> 
+	 *  by Milian Wolff <mail@milianw.de>
 	 * @param string
 	 * @return string
 	 */
@@ -924,7 +1004,7 @@ class PKPTemplateManager extends Smarty {
 		// Put all opened tags into an array
 		String::regexp_match_all("#<([a-z]+)( .*)?(?!/)>#iU", $string, $result);
 		$openedtags = $result[1];
-		
+
 		// Put all closed tags into an array
 		String::regexp_match_all("#</([a-z]+)>#iU", $string, $result);
 		$closedtags = $result[1];
@@ -1048,7 +1128,7 @@ class PKPTemplateManager extends Smarty {
 	}
 
 	/**
-	 * Smarty usage: {load_div id="someHtmlId" url="http://the.url.to.be.loaded.into.the.grid"}
+	 * Smarty usage: {load_url_in_div id="someHtmlId" url="http://the.url.to.be.loaded.into.the.grid"}
 	 *
 	 * Custom Smarty function for loading a URL via AJAX into a DIV
 	 * @params $params array associative array
@@ -1058,29 +1138,29 @@ class PKPTemplateManager extends Smarty {
 	function smartyLoadUrlInDiv($params, &$smarty) {
 		// Required Params
 		if (!isset($params['url'])) {
-			$smarty->trigger_error("URL parameter is missing from load_div");
+			$smarty->trigger_error("URL parameter is missing from load_url_in_div");
 		}
 		if (!isset($params['id'])) {
-			$smarty->trigger_error("id parameter is missing from load_div");
-		}
-		$url = $params['url'];
-		$id = $params['id'];
-		if (isset($params['loadMessageId'])) {
-			$loadMessageId = $params['loadMessageId'];
-			unset($params['url'], $params['id'], $params['loadMessageId']);
-			$translatedLoadMessage = Locale::translate($loadMessageId, $params);
-		} else {
-			$translatedLoadMessage = '';
+			$smarty->trigger_error("id parameter is missing from load_url_in_div");
 		}
 
-		echo "<div id=\"$id\">$translatedLoadMessage</div>
-		<script type='text/javascript'>
-		  $(\"#$id\").load(\"$url\");
-		</script>";
+		$this->assign('inDivUrl', $params['url']);
+		$this->assign('inDivDivId', $params['id']);
+		if (isset($params['class'])) $this->assign('inDivClass', $params['class']);
+
+		if (isset($params['loadMessageId'])) {
+			$loadMessageId = $params['loadMessageId'];
+			unset($params['url'], $params['id'], $params['loadMessageId'], $params['class']);
+			$this->assign('inDivLoadMessage', Locale::translate($loadMessageId, $params));
+		} else {
+			$this->assign('inDivLoadMessage', Locale::translate('common.loading'));
+		}
+
+		return $this->fetch('common/urlInDiv.tpl');
 	}
 
 	/**
-	 * Smarty usage: {modal	 url=$dialogUrl actOnId="#gridName" button="#dialogButton"}
+	 * Smarty usage: {modal url=$dialogUrl actOnId="#gridName" button="#dialogButton"}
 	 *
 	 * Custom Smarty function for creating jQuery-based modals
 	 * @params $params array associative array
@@ -1100,6 +1180,7 @@ class PKPTemplateManager extends Smarty {
 			$actOnType = isset($params['actOnType'])?$params['actOnType']:'';
 			$actOnId = $params['actOnId'];
 			$button = $params['button'];
+			$dialogTitle = isset($params['dialogTitle'])?$params['dialogTitle']: false;
 		}
 
 		// Translate modal submit/cancel buttons
@@ -1107,12 +1188,13 @@ class PKPTemplateManager extends Smarty {
 		$cancelButton = Locale::translate('common.cancel');
 
 		// Add the modal javascript to the header
+		$dialogTitle = isset($dialogTitle) ? ", '$dialogTitle'" : "";
 		$modalCode = "<script type='text/javascript'>
-		var localizedButtons = ['$submitButton', '$cancelButton'];
-		modal('$url', '$actOnType', '$actOnId', localizedButtons, '$button');
+			var localizedButtons = ['$submitButton', '$cancelButton'];
+			modal('$url', '$actOnType', '$actOnId', localizedButtons, '$button'$dialogTitle);
 		</script>\n";
 
-		echo $modalCode;
+		return $modalCode;
 	}
 
 
@@ -1140,7 +1222,11 @@ class PKPTemplateManager extends Smarty {
 
 		if (isset($params['dialogText']))  {
 			$showDialog = true;
-			$dialogText = Locale::translate($params['dialogText']);
+			if(isset($params['translate']) && $params['translate'] == false) {
+				$dialogText = $params['dialogText'];
+			} else {
+				$dialogText = Locale::translate($params['dialogText']);
+			}
 		} else {
 			$showDialog = false;
 		}
@@ -1164,7 +1250,46 @@ class PKPTemplateManager extends Smarty {
 			</script>";
 		}
 
-		echo $confirmCode;
+		return $confirmCode;
+	}
+
+	/**
+	 * Smarty usage: {confirm_submit button='buttonId' dialogText="example.locale.key" dialogTitle="example.locale.key"}
+	 * Custom Smarty function for confirming submission of a form
+	 * @params $params array associative array
+	 * @params $smarty Smarty
+	 * @return string Call to modalConfirmSubmit function with specified parameters
+	 */
+	function smartyConfirmSubmit($params, &$smarty) {
+		// Required params
+		if (!isset($params['button'])) {
+			$smarty->trigger_error("Button parameter is missing from confirm");
+		} else {
+			$button = $params['button'];
+		}
+
+		// Optional params
+		if (!isset($params['dialogText'])) {
+			$dialogText = Locale::translate('form.confirmSubmit');
+		} else {
+			$dialogText = Locale::translate($params['dialogText']);
+		}
+		if (!isset($params['dialogTitle'])) {
+			$dialogTitle = Locale::translate('form.confirmSubmit.title');
+		} else {
+			$dialogTitle = Locale::translate($params['dialogTitle']);
+		}
+
+		// Translate modal submit/cancel buttons
+		$submitButton = Locale::translate('common.ok');
+		$cancelButton = Locale::translate('common.cancel');
+
+		$confirmCode = "<script type='text/javascript'>
+		var localizedButtons = ['$submitButton', '$cancelButton'];
+		modalConfirmSubmit('$button', '$dialogText', '$dialogTitle', localizedButtons);
+		</script>\n";
+
+		return $confirmCode;
 	}
 
 	function smartyAjaxUpload($params, &$smarty) {
@@ -1181,9 +1306,9 @@ class PKPTemplateManager extends Smarty {
 		} else {
 			$url = $params['url'];
 		}
-		echo "<script type='text/javascript'>ajaxUpload('$url', '$form');</script>";
+		return "<script type='text/javascript'>ajaxUpload('$url', '$form');</script>";
 	}
-	
+
 	function smartyInitTabs($params, &$smarty) {
 		// Required params
 		if (!isset($params['id'])) {
@@ -1192,10 +1317,64 @@ class PKPTemplateManager extends Smarty {
 			$id = $params['id'];
 		}
 
-		echo "<script type='text/javascript'>$(function() {
-			$('#$id').tabs();
-		});</script>";
+		return "<script type='text/javascript'>$(function() {
+		$('$id').tabs({
+			ajaxOptions: {
+				dataFilter: function(jsonData){
+					var data = $.parseJSON(jsonData);
+					if(data.status === true) {
+						return data.content;
+					} else {
+						alert(data.content);
+					}
+				}
+			}});
+		});
+		</script>";
 	}
+
+	function smartyModalTitle($params, &$smarty) {
+		// Required params
+		// Id must be child of div that is next-sibling of title div
+		if (!isset($params['id'])) {
+			$smarty->trigger_error("Selector missing for title bar initialization");
+		} else {
+			$id = $params['id'];
+		}
+
+		// Non-required params
+		$iconClass = isset($params['iconClass']) ? $params['iconClass'] : '';
+		if(isset($params['iconClass'])) {
+			$iconClass = $params['iconClass'];
+			$iconHtml = "<span class='icon $iconClass' />";
+
+		} else $iconHtml = "";
+
+		if(isset($params['key'])) {
+			$keyHtml = "<span class='text'>" . Locale::translate($params['key']) . "</span>";
+		} elseif(isset($params['keyTranslated'])) {
+			$keyHtml = "<span class='text'>" . $params['keyTranslated'] . "</span>";
+		} else $keyHtml = "";
+
+
+		if(isset($params['canClose'])) {
+			$canClose = $params['canClose'];
+			$canCloseHtml = "<a class='close ui-corner-all' href='#'><span class='ui-icon ui-icon-closethick'>close</span></a>";
+
+		} else $canCloseHtml = "";
+
+		return "<script type='text/javascript'>$(function() {
+		$('$id').last().parent().prev('.ui-dialog-titlebar').remove();
+		$('a.close').live('click', function() { $(this).parent().parent().dialog('close'); return false; });
+		return false;
+		});</script>
+		<div class='modalTitleBar'>" .
+			$iconHtml .
+			$keyHtml .
+			$canCloseHtml .
+		"<span style='clear:both' /></div>";
+	}
+
 }
 
 ?>

@@ -7,24 +7,28 @@
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
  *
  * @class GridHandler
- * @ingroup controllers_grid
+ * @ingroup classes_controllers_grid
  *
  * @brief Class defining basic operations for handling HTML grids.
  */
 
 // import the base Handler
-import('handler.PKPHandler');
+import('lib.pkp.classes.handler.PKPHandler');
+
+// import action class
+import('lib.pkp.classes.linkAction.LinkAction');
 
 // import grid classes
-import('controllers.grid.GridAction');
-import('controllers.grid.GridColumn');
-import('controllers.grid.GridRow');
+import('lib.pkp.classes.controllers.grid.GridColumn');
+import('lib.pkp.classes.controllers.grid.GridRow');
 
 // import JSON class for use with all AJAX requests
-import('core.JSON');
+import('lib.pkp.classes.core.JSON');
 
 // grid specific action positions
+define('GRID_ACTION_POSITION_DEFAULT', 'default');
 define('GRID_ACTION_POSITION_ABOVE', 'above');
+define('GRID_ACTION_POSITION_LASTCOL', 'lastcol');
 define('GRID_ACTION_POSITION_BELOW', 'below');
 
 class GridHandler extends PKPHandler {
@@ -76,7 +80,7 @@ class GridHandler extends PKPHandler {
 	/**
 	 * Get all actions for a given position within the grid
 	 * @param $position string the position of the actions
-	 * @return array the GridActions for the given position
+	 * @return array the LinkActions for the given position
 	 */
 	function getActions($position = GRID_ACTION_POSITION_ABOVE) {
 		if(!isset($this->_actions[$position])) return array();
@@ -136,7 +140,7 @@ class GridHandler extends PKPHandler {
 	function &getData() {
 		if (is_null($this->_data)) {
 			// initialize data to an empty iterator
-			import('core.ItemIterator');
+			import('lib.pkp.classes.core.ItemIterator');
 			$elementIterator = new ItemIterator();
 			$this->setData($elementIterator);
 		}
@@ -149,6 +153,17 @@ class GridHandler extends PKPHandler {
 	}
 
 	/**
+	 * Check whether the grid has rows.
+	 * @return boolean
+	 */
+	function hasData() {
+		$data =& $this->getData();
+		assert (is_a($data, 'ItemIterator'));
+		$hasData = $data->getCount() ? true : false;
+		return $hasData;
+	}
+
+	/**
 	 * Set the grid data
 	 * @param $data mixed an array or ItemIterator with element data
 	 */
@@ -156,7 +171,7 @@ class GridHandler extends PKPHandler {
 		if (is_a($data, 'ItemIterator')) {
 			$this->_data =& $data;
 		} elseif(is_array($data)) {
-			import('core.ArrayItemIterator');
+			import('lib.pkp.classes.core.ArrayItemIterator');
 			$this->_data = new ArrayItemIterator($data);
 		} else {
 			assert(false);
@@ -183,25 +198,29 @@ class GridHandler extends PKPHandler {
 		$this->_template = $template;
 	}
 
+	/**
+	 * Override this method to return true if you want
+	 * to use the grid within another component (e.g. to
+	 * remove the title or change the layout accordingly).
+	 *
+	 * @return boolean
+	 */
+	function getIsSubcomponent() {
+		return false;
+	}
+
+
 	//
 	// Overridden methods from PKPHandler
 	//
 	/**
-	 * @see PKPHandler::getRemoteOperations()
-	 */
-	function getRemoteOperations() {
-		return array('fetchGrid', 'fetchRow', 'fetchCell');
-	}
-
-	/**
 	 * @see PKPHandler::initialize()
-	 * @param $request PKPRequest
 	 */
-	function initialize(&$request) {
-		parent::initialize($request);
+	function initialize(&$request, $args = null) {
+		parent::initialize($request, $args);
 
 		// Load grid-specific translations
-		Locale::requireComponents(array(LOCALE_COMPONENT_PKP_GRID));
+		Locale::requireComponents(array(LOCALE_COMPONENT_PKP_GRID, LOCALE_COMPONENT_APPLICATION_COMMON));
 	}
 
 	//
@@ -210,7 +229,9 @@ class GridHandler extends PKPHandler {
 	/**
 	 * Render the entire grid controller and send
 	 * it to the client.
-	 * @return string the grid HTML
+	 * @param $args array
+	 * @param $request Request
+	 * @return string the serialized grid JSON message
 	 */
 	function fetchGrid($args, &$request) {
 
@@ -228,24 +249,30 @@ class GridHandler extends PKPHandler {
 		$templateMgr->assign_by_ref('gridBodyParts', $gridBodyParts);
 
 		// Let the view render the grid
-		return $templateMgr->fetch($this->getTemplate());
+		$json = new JSON('true', $templateMgr->fetch($this->getTemplate()));
+		return $json->getString();
 	}
 
 	/**
 	 * Render a row and send it to the client.
-	 * @return string the row HTML
+	 * @param $args array
+	 * @param $request Request
+	 * @return string the serialized row JSON message
 	 */
 	function fetchRow(&$args, &$request) {
 		// Instantiate the requested row
 		$row =& $this->getRequestedRow($request, $args);
 
 		// Render the requested row
-		return $this->_renderRowInternally($request, $row);
+		$json = new JSON('true', $this->_renderRowInternally($request, $row));
+		return $json->getString();
 	}
 
 	/**
 	 * Render a cell and send it to the client
-	 * @return string the row HTML
+	 * @param $args array
+	 * @param $request Request
+	 * @return string the serialized cell JSON message
 	 */
 	function fetchCell(&$args, &$request) {
 		// Check the requested column
@@ -257,7 +284,8 @@ class GridHandler extends PKPHandler {
 		$row =& $this->getRequestedRow($request, $args);
 
 		// Render the cell
-		return $this->_renderCellInternally($request, $row, $column);
+		$json = new JSON('true', $this->_renderCellInternally($request, $row, $column));
+		return $json->getString();
 	}
 
 	//
@@ -339,7 +367,8 @@ class GridHandler extends PKPHandler {
 	 */
 	function _renderGridBodyPartsInternally(&$request) {
 		$gridBodyParts = array();
-		$renderedRows = $this->_renderRowsInternally($request);
+		$nullVar = null; // Kludge
+		$renderedRows = $this->_renderRowsInternally($request, $nullVar);
 		$templateMgr =& TemplateManager::getManager();
 		if ( count($renderedRows) > 0 ) {
 			$templateMgr->assign_by_ref('rows', $renderedRows);
@@ -355,7 +384,7 @@ class GridHandler extends PKPHandler {
 	 * @param $elementIterator ItemIterator (optional)
 	 * @return array of HTML Strings for Grid Rows.
 	 */
-	function _renderRowsInternally(&$request, &$elementIterator = null) {
+	function _renderRowsInternally(&$request, &$elementIterator) {
 		// Iterate through the rows and render them according
 		// to the row definition.  Uses $rowIterator or gets all the grid data.
 		if ( !$elementIterator ) $elementIterator =& $this->_getSortedElements();
@@ -424,7 +453,7 @@ class GridHandler extends PKPHandler {
 	function _renderCellInternally(&$request, &$row, &$column) {
 		// Get the cell content
 		$cellProvider =& $column->getCellProvider();
-		return $cellProvider->render($row, $column);
+		return $cellProvider->render($request, $row, $column);
 	}
 
 	/**

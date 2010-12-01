@@ -12,20 +12,35 @@
  * @brief Class that transforms XML via XSL.
  */
 
-// $Id$
+import('lib.pkp.classes.filter.PersistableFilter');
+import('lib.pkp.classes.xslt.XSLTransformer');
 
-import('filter.Filter');
-import('xslt.XSLTransformer');
+class XSLTransformationFilter extends PersistableFilter {
+	/**
+	 * Constructor
+	 *
+	 * @param $filterGroup FilterGroup
+	 * @param $displayName string
+	 *
+	 * NB: The input side of the transformation must always
+	 * be an XML format. See the XMLTypeDescription class for
+	 * more details how to enable XML validation.
+	 */
+	function XSLTransformationFilter(&$filterGroup, $displayName = 'XSL Transformation') {
+		// Check that we only get xml input, the output type is arbitrary.
+		if (!substr($filterGroup->getInputType(), 0, 5) == 'xml::') fatalError('XSL filters need XML as input.');
 
-class XSLTransformationFilter extends Filter {
-	/** @var DOMDocument|string either an XSL string or an XSL DOMDocument */
-	var $_xsl;
+		// Instantiate the settings of this filter
+		import('lib.pkp.classes.filter.FilterSetting');
+		$this->addSetting(new FilterSetting('xsl', null, null));
+		$this->addSetting(new FilterSetting('xslType', null, null));
+		$this->addSetting(new FilterSetting('resultType', null, null, FORM_VALIDATOR_OPTIONAL_VALUE));
 
-	/** @var integer */
-	var $_xslType;
+		$this->setDisplayName($displayName);
 
-	/** @var integer */
-	var $_resultType;
+		parent::PersistableFilter($filterGroup);
+	}
+
 
 	//
 	// Getters and Setters
@@ -35,7 +50,7 @@ class XSLTransformationFilter extends Filter {
 	 * @return DOMDocument|string a document, xsl string or file name
 	 */
 	function &getXSL() {
-		return $this->_xsl;
+		return $this->getData('xsl');
 	}
 
 	/**
@@ -43,7 +58,7 @@ class XSLTransformationFilter extends Filter {
 	 * @return integer
 	 */
 	function getXSLType() {
-		return $this->_xslType;
+		return $this->getData('xslType');
 	}
 
 	/**
@@ -53,12 +68,12 @@ class XSLTransformationFilter extends Filter {
 	function setXSL(&$xsl) {
 		// Determine the xsl type
 		if (is_string($xsl)) {
-			$this->_xslType = XSL_TRANSFORMER_DOCTYPE_STRING;
+			$this->setData('xslType', XSL_TRANSFORMER_DOCTYPE_STRING);
 		} elseif (is_a($xsl, 'DOMDocument')) {
-			$this->_xslType = XSL_TRANSFORMER_DOCTYPE_DOM;
+			$this->setData('xslType', XSL_TRANSFORMER_DOCTYPE_DOM);
 		} else assert(false);
 
-		$this->_xsl =& $xsl;
+		$this->setData('xsl', $xsl);
 	}
 
 	/**
@@ -66,8 +81,8 @@ class XSLTransformationFilter extends Filter {
 	 * @param unknown_type $xslFile
 	 */
 	function setXSLFilename($xslFile) {
-		$this->_xslType = XSL_TRANSFORMER_DOCTYPE_FILE;
-		$this->_xsl = $xslFile;
+		$this->setData('xslType', XSL_TRANSFORMER_DOCTYPE_FILE);
+		$this->setData('xsl', $xslFile);
 	}
 
 	/**
@@ -75,7 +90,7 @@ class XSLTransformationFilter extends Filter {
 	 * @return integer
 	 */
 	function getResultType() {
-		return $this->_resultType;
+		return $this->getData('resultType');
 	}
 
 	/**
@@ -83,29 +98,24 @@ class XSLTransformationFilter extends Filter {
 	 * @param $resultType integer
 	 */
 	function setResultType($resultType) {
-		$this->_resultType = $resultType;
+		$this->setData('resultType', $resultType);
+	}
+
+
+	//
+	// Implement template methods from PersistableFilter
+	//
+	/**
+	 * @see PersistableFilter::getClassName()
+	 */
+	function getClassName() {
+		return 'lib.pkp.classes.xslt.XSLTransformationFilter';
 	}
 
 
 	//
 	// Implement template methods from Filter
 	//
-	/**
-	 * We support either an XML string or a DOMDocument
-	 * as input and / or output.
-	 * @see Filter::supports()
-	 * @param $input mixed
-	 * @param $output mixed
-	 */
-	function supports(&$input, &$output) {
-		// Check input type
-		if (!$this->_isValidXML($input)) return false;
-
-		// Check output type
-		if (is_null($output)) return true;
-		return $this->_isValidXML($output);
-	}
-
 	/**
 	 * Process the given XML with the configured XSL
 	 * @see Filter::process()
@@ -123,27 +133,14 @@ class XSLTransformationFilter extends Filter {
 		// Determine the result type based on
 		// the input type if it has not been
 		// set explicitly.
-		if (is_null($this->_resultType)) {
-			$this->_resultType = $xmlType;
+		if (is_null($this->getResultType())) {
+			$this->setResultType($xmlType);
 		}
 
 		// Transform the input
 		$xslTransformer = new XSLTransformer();
-		$result =& $xslTransformer->transform($xml, $xmlType, $this->_xsl, $this->_xslType, $this->_resultType);
+		$result =& $xslTransformer->transform($xml, $xmlType, $this->getXsl(), $this->getXslType(), $this->getResultType());
 		return $result;
-	}
-
-	//
-	// Private helper methods
-	//
-	/**
-	 * Checks whether this is either a DOMDocument or a
-	 * string and whether the input combines with the XSL.
-	 * @param $input mixed
-	 * @return boolean
-	 */
-	function _isValidXML(&$xml) {
-		return (is_a($xml, 'DOMDocument') || is_string($xml));
 	}
 }
 ?>

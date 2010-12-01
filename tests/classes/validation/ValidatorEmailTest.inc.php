@@ -13,8 +13,8 @@
  * @brief Test class for ValidatorEmail.
  */
 
-import('tests.PKPTestCase');
-import('validation.ValidatorEmail');
+import('lib.pkp.tests.PKPTestCase');
+import('lib.pkp.classes.validation.ValidatorEmail');
 
 class ValidatorEmailTest extends PKPTestCase {
 	/**
@@ -22,7 +22,7 @@ class ValidatorEmailTest extends PKPTestCase {
 	 * @covers ValidatorRegExp
 	 */
 	public function testValidatorEmail() {
-	    $validator = new ValidatorEmail();
+		$validator = new ValidatorEmail();
 		self::assertTrue($validator->isValid('some.address@gmail.com'));
 		self::assertFalse($validator->isValid('anything else'));
 

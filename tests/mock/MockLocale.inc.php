@@ -12,12 +12,19 @@
  * @brief Mock implementation of the Locale class
  */
 
+define('LOCALE_REGISTRY_FILE', 'lib/pkp/tests/registry/locales.xml');
 define('LOCALE_ENCODING', 'utf-8');
 
-class Locale {
-	private static
+define('LOCALE_COMPONENT_APPLICATION_COMMON',	0x00000101);
+
+import('lib.pkp.classes.i18n.PKPLocale');
+
+class Locale extends PKPLocale {
+	static
+		$primaryLocale = 'en_US',
+		$supportedLocales = array('en_US' => 'English/America'),
 		$translationKey;
-		
+
 	/*
 	 * method required during setup of
 	 * the PKP application framework
@@ -43,11 +50,12 @@ class Locale {
 		// do nothing
 	}
 
-	/**
-	 * method required in PKPTemplateManager
+	/*
+	 * method required during setup of
+	 * the PKP templating engine and application framework
 	 */
-	function getLocaleStyleSheet($locale) {
-		return null;
+	function requireComponents($components, $locale = null) {
+		// do nothing
 	}
 
 	/**
@@ -71,19 +79,49 @@ class Locale {
 	}
 
 	/**
+	 * Setter to configure a custom
+	 * primary locale for testing.
+	 * @param $primaryLocale string
+	 */
+	function setPrimaryLocale($primaryLocale) {
+		self::$primaryLocale = $primaryLocale;
+	}
+
+	/**
 	 * Mocked method
 	 * @return string
 	 */
 	function getPrimaryLocale() {
-		return 'en_US';
+		return self::$primaryLocale;
+	}
+
+	/**
+	 * Setter to configure a custom
+	 * primary locale for testing.
+	 * @param $supportedLocales array
+	 *  example array(
+	 *   'en_US' => 'English',
+	 *   'de_DE' => 'German'
+	 *  )
+	 */
+	function setSupportedLocales($supportedLocales) {
+		self::$supportedLocales = $supportedLocales;
 	}
 
 	/**
 	 * Mocked method
 	 * @return array
 	 */
-	function getAllLocales() {
-		return array('en_US' => 'English/America');
+	function getSupportedLocales() {
+		return self::$supportedLocales;
+	}
+
+	/**
+	 * Mocked method
+	 * @return array
+	 */
+	function getSupportedFormLocales() {
+		return array('en_US');
 	}
 
 	/**

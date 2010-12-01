@@ -31,3 +31,4 @@
 
 <br />
 <input type="button" onclick="window.close()" value="{translate key="common.close"}" class="button defaultButton"/>
+

@@ -13,8 +13,8 @@
  */
 
 // import grid classes
-import('controllers.grid.GridHandler');
-import('controllers.grid.GridCategoryRow');
+import('lib.pkp.classes.controllers.grid.GridHandler');
+import('lib.pkp.classes.controllers.grid.GridCategoryRow');
 
 // empty category constant
 define('GRID_CATEGORY_NONE', 'NONE');
@@ -27,22 +27,10 @@ class CategoryGridHandler extends GridHandler {
 		parent::GridHandler();
 	}
 
-	//
-	// Getters/Setters
-	//
-
-
 
 	//
 	// Overridden methods from PKPHandler
 	//
-	/**
-	 * @see PKPHandler::getRemoteOperations()
-	 */
-	function getRemoteOperations() {
-		return array_merge(parent::getRemoteOperations(), array('fetchCategory'));
-	}
-
 	/**
 	 * @see PKPHandler::initialize()
 	 * @param $request PKPRequest
@@ -50,6 +38,7 @@ class CategoryGridHandler extends GridHandler {
 	function initialize(&$request) {
 		parent::initialize($request);
 	}
+
 
 	//
 	// Public handler methods
@@ -75,7 +64,9 @@ class CategoryGridHandler extends GridHandler {
 		$templateMgr->assign_by_ref('gridBodyParts', $gridBodyParts);
 
 		// Let the view render the grid
-		return $templateMgr->fetch($this->getTemplate());
+		// Let the view render the grid
+		$json = new JSON('true', $templateMgr->fetch($this->getTemplate()));
+		return $json->getString();
 	}
 
 	/**
@@ -87,7 +78,8 @@ class CategoryGridHandler extends GridHandler {
 		$row =& $this->getRequestedRow($request, $args);
 
 		// Render the requested row
-		return $this->_renderRowInternally($request, $row);
+		$json = new JSON('true', $this->_renderRowInternally($request, $row));
+		return $json->getString();
 	}
 
 	/**
@@ -104,8 +96,10 @@ class CategoryGridHandler extends GridHandler {
 		$row =& $this->getRequestedRow($request, $args);
 
 		// Render the cell
-		return $this->_renderCellInternally($request, $row, $column);
+		$json = new JSON('true', $this->_renderCellInternally($request, $row, $column));
+		return $json->getString();
 	}
+
 
 	//
 	// Protected methods to be overridden/used by subclasses
@@ -174,6 +168,7 @@ class CategoryGridHandler extends GridHandler {
 			return $dataArray[$rowId];
 		}
 	}
+
 
 	//
 	// Private helper methods

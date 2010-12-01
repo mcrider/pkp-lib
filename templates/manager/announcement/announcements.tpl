@@ -64,3 +64,4 @@
 <a href="{url op="createAnnouncement"}" class="action">{translate key="manager.announcements.create"}</a>
 </div>
 {include file="common/footer.tpl"}
+

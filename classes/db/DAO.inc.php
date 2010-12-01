@@ -17,12 +17,10 @@
  * @brief Operations for retrieving and modifying objects from a database.
  */
 
-// $Id$
 
-
-import('db.DBConnection');
-import('db.DAOResultFactory');
-import('core.DataObject');
+import('lib.pkp.classes.db.DBConnection');
+import('lib.pkp.classes.db.DAOResultFactory');
+import('lib.pkp.classes.core.DataObject');
 
 define('SORT_DIRECTION_ASC', 0x00001);
 define('SORT_DIRECTION_DESC', 0x00002);
@@ -37,11 +35,9 @@ class DAO {
 	 */
 	function DAO($dataSource = null, $callHooks = true) {
 		if ($callHooks === true && checkPhpVersion('4.3.0')) {
-			$trace = debug_backtrace();
-			// Call hooks based on the calling entity, assuming
-			// this method is only called by a subclass. Results
+			// Call hooks based on the object name. Results
 			// in hook calls named e.g. "sessiondao::_Constructor"
-			if (HookRegistry::call(strtolower($trace[1]['class']) . '::_Constructor', array(&$this, &$dataSource))) {
+			if (HookRegistry::call(strtolower(get_class($this)) . '::_Constructor', array(&$this, &$dataSource))) {
 				return;
 			}
 		}
@@ -147,7 +143,7 @@ class DAO {
 	 * Execute a SELECT SQL statment, returning rows in the range supplied.
 	 * @param $sql string the SQL statement
 	 * @param $params array parameters for the SQL statement
-	 * @param $dbResultRange object the DBResultRange object describing the desired range
+	 * @param $dbResultRange DBResultRange object describing the desired range
 	 */
 	function &retrieveRange($sql, $params = false, $dbResultRange = null, $callHooks = true) {
 		if ($callHooks === true && checkPhpVersion('4.3.0')) {
@@ -224,6 +220,14 @@ class DAO {
 	 */
 	function getInsertId($table = '', $id = '', $callHooks = true) {
 		return $this->_dataSource->po_insert_id($table, $id);
+	}
+
+	/**
+	 * Return the number of affected rows by the last UPDATE or DELETE.
+	 * @return int (or false if not supported)
+	 */
+	function getAffectedRows() {
+		return $this->_dataSource->Affected_Rows();
 	}
 
 	/**
@@ -361,13 +365,21 @@ class DAO {
 			case 'bool':
 				$value = $value ? 1 : 0;
 				break;
+			case 'int':
+				$value = (int) $value;
+				break;
+			case 'float':
+				$value = (float) $value;
+				break;
 			case 'date':
 				if ($value !== null) {
 					if (!is_numeric($value)) $value = strtotime($value);
 					$value = strftime('%Y-%m-%d %H:%M:%S', $value);
 				}
 				break;
+			case 'string':
 			default:
+				// do nothing.
 		}
 
 		return $value;
@@ -503,7 +515,6 @@ class DAO {
 			$sql = "SELECT * FROM $tableName";
 			$params = false;
 		}
-		$start = Core::microtime();
 		$result =& $this->retrieve($sql, $params);
 
 		while (!$result->EOF) {

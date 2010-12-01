@@ -13,7 +13,6 @@
  *
  */
 
-// $Id$
 
 /*
  * Perl-compatibile regular expression (PCRE) constants:
@@ -134,10 +133,10 @@ class String {
 	 */
 	function strlen($string) {
 		if (defined('ENABLE_MBSTRING')) {
-			require_once 'mbstring/core.php';
+			require_once './lib/pkp/lib/phputf8/mbstring/core.php';
 		} else {
-		 	require_once 'utils/unicode.php';
-			require_once 'native/core.php';
+		 	require_once './lib/pkp/lib/phputf8/utils/unicode.php';
+			require_once './lib/pkp/lib/phputf8/native/core.php';
 		}
 		return utf8_strlen($string);
 	}
@@ -147,10 +146,10 @@ class String {
 	 */
 	function strpos($haystack, $needle, $offset = 0) {
 		if (defined('ENABLE_MBSTRING')) {
-			require_once 'mbstring/core.php';
+			require_once './lib/pkp/lib/phputf8/mbstring/core.php';
 		} else {
-		 	require_once 'utils/unicode.php';
-			require_once 'native/core.php';
+		 	require_once './lib/pkp/lib/phputf8/utils/unicode.php';
+			require_once './lib/pkp/lib/phputf8/native/core.php';
 		}
 		return utf8_strpos($haystack, $needle, $offset);
 	}
@@ -160,10 +159,10 @@ class String {
 	 */
 	function strrpos($haystack, $needle) {
 		if (defined('ENABLE_MBSTRING')) {
-			require_once 'mbstring/core.php';
+			require_once './lib/pkp/lib/phputf8/mbstring/core.php';
 		} else {
-		 	require_once 'utils/unicode.php';
-			require_once 'native/core.php';
+		 	require_once './lib/pkp/lib/phputf8/utils/unicode.php';
+			require_once './lib/pkp/lib/phputf8/native/core.php';
 		}
 		return utf8_strrpos($haystack, $needle, $offset);
 	}
@@ -173,10 +172,13 @@ class String {
 	 */
 	function substr($string, $start, $length = false) {
 		if (defined('ENABLE_MBSTRING')) {
-			require_once 'mbstring/core.php';
+			require_once './lib/pkp/lib/phputf8/mbstring/core.php';
 		} else {
-			require_once 'utils/unicode.php';
-			require_once 'native/core.php';
+			require_once './lib/pkp/lib/phputf8/utils/unicode.php';
+			require_once './lib/pkp/lib/phputf8/native/core.php';
+			// The default length value for the native implementation
+			// differs
+			if ($length === false) $length = null;
 		}
 		return utf8_substr($string, $start, $length);
 	}
@@ -220,10 +222,10 @@ class String {
 	 */
 	function strtolower($string) {
 		if (defined('ENABLE_MBSTRING')) {
-			require_once 'mbstring/core.php';
+			require_once './lib/pkp/lib/phputf8/mbstring/core.php';
 		} else {
-		 	require_once 'utils/unicode.php';
-			require_once 'native/core.php';
+		 	require_once './lib/pkp/lib/phputf8/utils/unicode.php';
+			require_once './lib/pkp/lib/phputf8/native/core.php';
 		}
 		return utf8_strtolower($string);
 	}
@@ -233,10 +235,10 @@ class String {
 	 */
 	function strtoupper($string) {
 		if (defined('ENABLE_MBSTRING')) {
-			require_once 'mbstring/core.php';
+			require_once './lib/pkp/lib/phputf8/mbstring/core.php';
 		} else {
-		 	require_once 'utils/unicode.php';
-			require_once 'native/core.php';
+		 	require_once './lib/pkp/lib/phputf8/utils/unicode.php';
+			require_once './lib/pkp/lib/phputf8/native/core.php';
 		}
 		return utf8_strtoupper($string);
 	}
@@ -246,12 +248,12 @@ class String {
 	 */
 	function ucfirst($string) {
 		if (defined('ENABLE_MBSTRING')) {
-			require_once 'mbstring/core.php';
-			require_once 'ucfirst.php';
+			require_once './lib/pkp/lib/phputf8/mbstring/core.php';
+			require_once './lib/pkp/lib/phputf8/ucfirst.php';
 		} else {
-		 	require_once 'utils/unicode.php';
-			require_once 'native/core.php';
-			require_once 'ucfirst.php';
+		 	require_once './lib/pkp/lib/phputf8/utils/unicode.php';
+			require_once './lib/pkp/lib/phputf8/native/core.php';
+			require_once './lib/pkp/lib/phputf8/ucfirst.php';
 		}
 		return utf8_ucfirst($string);
 	}
@@ -455,6 +457,20 @@ class String {
 		return $html;
 	}
 
+	/**
+	 * Convert limited HTML into a string.
+	 * @param $html string
+	 * @return string
+	 */
+	function html2text($html) {
+		$html = String::regexp_replace('/<[\/]?p>/', "\n", $html);
+		$html = String::regexp_replace('/<li>/', '&bull; ', $html);
+		$html = String::regexp_replace('/<\/li>/', "\n", $html);
+		$html = String::regexp_replace('/<br[ ]?[\/]?>/', "\n", $html);
+		$html = String::html2utf(strip_tags($html));
+		return $html;
+	}
+
 	//
 	// Wrappers for UTF-8 validation routines
 	// See the phputf8 documentation for usage.
@@ -466,7 +482,7 @@ class String {
 	 * @return boolean
 	 */
 	function utf8_is_valid($str) {
-		require_once 'utils/validation.php';
+		require_once './lib/pkp/lib/phputf8/utils/validation.php';
 		return utf8_is_valid($str);
 	}
 
@@ -477,7 +493,7 @@ class String {
 	 * @return boolean
 	 */
 	function utf8_compliant($str) {
-		require_once 'utils/validation.php';
+		require_once './lib/pkp/lib/phputf8/utils/validation.php';
 		return utf8_compliant($str);
 	}
 
@@ -487,7 +503,7 @@ class String {
 	 * @return string
 	 */
 	function utf8_bad_find($str) {
-		require_once 'utils/bad.php';
+		require_once './lib/pkp/lib/phputf8/utils/bad.php';
 		return utf8_bad_find($str);
 	}
 
@@ -497,7 +513,7 @@ class String {
 	 * @return string
 	 */
 	function utf8_bad_strip($str) {
-		require_once 'utils/bad.php';
+		require_once './lib/pkp/lib/phputf8/utils/bad.php';
 		return utf8_bad_strip($str);
 	}
 
@@ -508,7 +524,7 @@ class String {
 	 * @return string
 	 */
 	function utf8_bad_replace($str, $replace = '?') {
-		require_once 'utils/bad.php';
+		require_once './lib/pkp/lib/phputf8/utils/bad.php';
 		return utf8_bad_replace($str, $replace);
 	}
 
@@ -518,7 +534,7 @@ class String {
 	 * @return string
 	 */
 	function utf8_strip_ascii_ctrl($str) {
-		require_once 'utils/ascii.php';
+		require_once './lib/pkp/lib/phputf8/utils/ascii.php';
 		return utf8_strip_ascii_ctrl($str);
 	}
 
@@ -528,7 +544,7 @@ class String {
 	 * @return string
 	 */
 	function utf8_normalize($str) {
-		import('core.Transcoder');
+		import('lib.pkp.classes.core.Transcoder');
 
 		if (String::hasMBString()) {
 			// NB: CP-1252 often segfaults; we've left it out here but it will detect as 'ISO-8859-1'
@@ -567,7 +583,7 @@ class String {
 	 * @return string
 	 */
 	function utf8_to_ascii($str) {
-		require_once('utf8_to_ascii.php');
+		require_once('./lib/pkp/lib/phputf8/utf8_to_ascii.php');
 		return utf8_to_ascii($str);
 	}
 
@@ -800,18 +816,15 @@ class String {
 	 * @return string
 	 */
 	function titleCase($title) {
-		$smallWords = array(
-			'of', 'a', 'the', 'and', 'an', 'or', 'nor', 'but', 'is', 'if', 'then',
-			'else', 'when', 'at', 'from', 'by', 'on', 'off', 'for', 'in', 'out',
-			'over', 'to', 'into', 'with'
-		);
+		Locale::requireComponents(array(LOCALE_COMPONENT_PKP_COMMON));
+		$smallWords = explode(' ', Locale::translate('common.titleSmallWords'));
 
 		$words = explode(' ', $title);
 		foreach ($words as $key => $word) {
-			if ($key == 0 or !in_array(self::strtolower($word), $smallWords)) {
-				$words[$key] = ucfirst(self::strtolower($word));
+			if ($key == 0 or !in_array(String::strtolower($word), $smallWords)) {
+				$words[$key] = ucfirst(String::strtolower($word));
 			} else {
-				$words[$key] = self::strtolower($word);
+				$words[$key] = String::strtolower($word);
 			}
 		}
 
@@ -881,6 +894,162 @@ class String {
 		String::regexp_match_all('/[A-Z][a-z0-9]*/', $string, $words);
 		assert(isset($words[0]) && !empty($words[0]) && strlen(implode('', $words[0])) == strlen($string));
 		return strtolower(implode('-', $words[0]));
+	}
+
+	/**
+	 * Calculate the differences between two strings and
+	 * produce an array with three types of entries: added
+	 * substrings, deleted substrings and unchanged substrings.
+	 *
+	 * The calculation is optimized to identify the common
+	 * largest substring.
+	 *
+	 * The return value is an array of the following format:
+	 *
+	 * array(
+	 *   array( diff-type => substring ),
+	 *   array(...)
+	 * )
+	 *
+	 * whereby diff-type can be one of:
+	 *   -1 = deletion
+	 *    0 = common substring
+	 *    1 = addition
+	 *
+	 * @param $string1 string
+	 * @param $string2 string
+	 * @return array
+	 */
+	function diff($originalString, $editedString) {
+		// Split strings into character arrays (multi-byte compatible).
+		foreach(array('originalStringCharacters' => $originalString, 'editedStringCharacters' => $editedString) as $characterArrayName => $string) {
+			${$characterArrayName} = array();
+			String::regexp_match_all('/./', $string, ${$characterArrayName});
+			if (isset(${$characterArrayName}[0])) {
+				${$characterArrayName} = ${$characterArrayName}[0];
+			}
+		}
+
+		// Determine the length of the strings.
+		$originalStringLength = count($originalStringCharacters);
+		$editedStringLength = count($editedStringCharacters);
+
+		// Is there anything to compare?
+		if ($originalStringLength == 0 && $editedStringLength == 0) return array();
+
+		// Is the original string empty?
+		if ($originalStringLength == 0) {
+			// Return the edited string as addition.
+			return array(array(1 => $editedString));
+		}
+
+		// Is the edited string empty?
+		if ($editedStringLength == 0) {
+			// Return the original string as deletion.
+			return array(array(-1 => $originalString));
+		}
+
+		// Initialize the local indices:
+		// 1) Create a character index for the edited string.
+		$characterIndex = array();
+		for($characterPosition = 0; $characterPosition < $editedStringLength; $characterPosition++) {
+			$characterIndex[$editedStringCharacters[$characterPosition]][] = $characterPosition;
+		}
+		// 2) Initialize the substring and the length index.
+		$substringIndex = $lengthIndex = array();
+
+		// Iterate over the original string to identify
+		// the largest common string.
+		for($originalPosition = 0; $originalPosition < $originalStringLength; $originalPosition++) {
+			// Find all occurrences of the original character
+			// in the target string.
+			$comparedCharacter = $originalStringCharacters[$originalPosition];
+
+			// Do we have a commonality between the original string
+			// and the edited string?
+			if (isset($characterIndex[$comparedCharacter])) {
+				// Loop over all commonalities.
+				foreach($characterIndex[$comparedCharacter] as $editedPosition) {
+					// Calculate the current and the preceding position
+					// ids for indexation.
+					$currentPosition = $originalPosition . '-' . $editedPosition;
+					$previousPosition = ($originalPosition-1) . '-' . ($editedPosition-1);
+
+					// Does the occurrence in the target string continue
+					// an existing common substring or does it start
+					// a new one?
+					if (isset($substringIndex[$previousPosition])) {
+						// This is a continuation of an existing common
+						// substring...
+						$newSubstring = $substringIndex[$previousPosition].$comparedCharacter;
+						$newSubstringLength = String::strlen($newSubstring);
+
+						// Move the substring in the substring index.
+						$substringIndex[$currentPosition] = $newSubstring;
+						unset($substringIndex[$previousPosition]);
+
+						// Move the substring in the length index.
+						$lengthIndex[$newSubstringLength][$currentPosition] = $newSubstring;
+						unset($lengthIndex[$newSubstringLength - 1][$previousPosition]);
+					} else {
+						// Start a new common substring...
+						// Add the substring to the substring index.
+						$substringIndex[$currentPosition] = $comparedCharacter;
+
+						// Add the substring to the length index.
+						$lengthIndex[1][$currentPosition] = $comparedCharacter;
+					}
+				}
+			}
+		}
+
+		// If we have no commonalities at all then mark the original
+		// string as deleted and the edited string as added and
+		// return.
+		if (empty($lengthIndex)) {
+			return array(
+				array( -1 => $originalString ),
+				array( 1 => $editedString )
+			);
+		}
+
+		// Pop the largest common substrings from the length index.
+		end($lengthIndex);
+		$largestSubstringLength = key($lengthIndex);
+
+		// Take the first common substring if we have more than
+		// one substring with the same length.
+		// FIXME: Find a better heuristic for this decision.
+		reset($lengthIndex[$largestSubstringLength]);
+		$largestSubstringPosition = key($lengthIndex[$largestSubstringLength]);
+		list($largestSubstringEndOriginal, $largestSubstringEndEdited) = explode('-', $largestSubstringPosition);
+		$largestSubstring = $lengthIndex[$largestSubstringLength][$largestSubstringPosition];
+
+		// Add the largest common substring to the result set
+		$diffResult = array(array( 0 => $largestSubstring ));
+
+		// Prepend the diff of the substrings before the common substring
+		// to the result diff (by recursion).
+		$precedingSubstringOriginal = String::substr($originalString, 0, $largestSubstringEndOriginal-$largestSubstringLength+1);
+		$precedingSubstringEdited = String::substr($editedString, 0, $largestSubstringEndEdited-$largestSubstringLength+1);
+		$diffResult = array_merge(String::diff($precedingSubstringOriginal, $precedingSubstringEdited), $diffResult);
+
+		// Append the diff of the substrings after thr common substring
+		// to the result diff (by recursion).
+		$succeedingSubstringOriginal = String::substr($originalString, $largestSubstringEndOriginal+1);
+		$succeedingSubstringEdited = String::substr($editedString, $largestSubstringEndEdited+1);
+		$diffResult = array_merge($diffResult, String::diff($succeedingSubstringOriginal, $succeedingSubstringEdited));
+
+		// Return the array representing the diff.
+		return $diffResult;
+	}
+
+	/**
+	 * Get a letter $steps places after 'A'
+	 * @param $steps int
+	 */
+	function enumerateAlphabetically($steps) {
+		return chr(ord('A') + $steps);
 	}
 }
 

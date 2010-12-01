@@ -20,7 +20,13 @@
 	<message key="grid.action.sort">Sort</message>
 	<message key="grid.action.addItem">Add Item</message>
 	<message key="grid.action.delete">Delete</message>
+	<message key="grid.action.remove">Remove</message>
 	<message key="grid.action.edit">Edit</message>
+	<message key="grid.action.approve">Approve</message>
+	<message key="grid.action.approveForReview">Submit to Review Stage</message>
+	<message key="grid.action.approveForPub">Approve for Publication</message>
+	<message key="grid.action.decline">Decline</message>
+	<message key="grid.action.moreInformation">More Information</message>
 	<message key="grid.action.restoreDefaults">Restore Defaults</message>
 
 	<!-- Common Grid Column Titles -->
@@ -37,12 +43,10 @@
 
 	<!-- Contributor Grid -->
 	<message key="grid.contributor.title">Contributor</message>
+	<message key="grid.action.addAuthor">Add Author</message>
 
 	<!-- Review Forms Grid -->
 	<message key="grid.reviewForm.title">Review Forms</message>
-
-	<!-- Book File Types Grid -->
-	<message key="grid.bookFileType.form.sortable">Allow files of this type to be sorted by component (e.g. by chapter)</message>
 
 	<!-- Artwork Files Grid -->
 	<message key="grid.artworkFile.title">Artwork w/Permissions</message>
@@ -51,13 +55,16 @@
 	<message key="grid.artworkFile.form.metadata">Artwork Metadata</message>
 	<message key="grid.artworkFile.caption">Caption</message>
 	<message key="grid.artworkFile.credit">Credit</message>
+	<message key="grid.artworkFile.captionAndCredit">Caption and Credit (If Not Included in the File)</message>
 	<message key="grid.artworkFile.copyrightOwner">Copyright Owner</message>
-	<message key="grid.artworkFile.copyrightContact">Contact Info (if not author/press)</message>
+	<message key="grid.artworkFile.copyrightContact">Contact Info (if not author/publisher)</message>
 	<message key="grid.artworkFile.permissionTerms">Permission Terms</message>
 	<message key="grid.artworkFile.permissionForm">Permission Form</message>
 	<message key="grid.artworkFile.type">Type</message>
 	<message key="grid.artworkFile.type.table">Table</message>
 	<message key="grid.artworkFile.type.figure">Figure</message>
+	<message key="grid.artworkFile.type.photo">Photo</message>
+	<message key="grid.artworkFile.type.illustration">Illustration</message>
 	<message key="grid.artworkFile.placement">Placement in book</message>
 	<message key="grid.artworkFile.placementDetail">Table/Fig. No.</message>
 	<message key="grid.artworkFile.contactAuthor">Contact Author</message>
@@ -80,6 +87,45 @@
 	<message key="author.users.contributor.role">Role</message>
 	<message key="author.users.contributor.principalContact">Primary Contact</message>
 
+	<!-- Review Attachments -->
+	<message key="grid.reviewAttachments.title">Reviewer's Attachments</message>
+	<message key="grid.reviewAttachments.add">Add Attachment to Review</message>
+
 	<!-- Chapters -->
 	<message key="grid.chapters.title">Chapters</message>
+
+	<!-- Users -->
+	<message key="grid.user.currentUsers">Current Users</message>
+	<message key="grid.user.currentEnrollment">Current Enrollment</message>
+	<message key="grid.user.allRoles">All Roles</message>
+	<message key="grid.user.add">Add User</message>
+	<message key="grid.user.enroll">Enroll User</message>
+	<message key="grid.user.edit">Edit User</message>
+	<message key="grid.user.email">Email</message>
+	<message key="grid.user.enable">Enable</message>
+	<message key="grid.user.disable">Disable</message>
+	<message key="grid.user.disableReason">Reason for disabling user</message>
+	<message key="grid.user.enableReason">Reason for enabling user</message>
+	<message key="grid.user.error">An error was encountered administrating this user. Please try again.</message>
+	<message key="grid.user.errorEmail">An error was encountered sending this email. Please ensure that your email server configuration is working and/or contact your system administrator.</message>
+	<message key="grid.user.cannotAdminister">You do not have sufficient permissions to edit this user.</message>
+	<message key="grid.user.authSource">Authentication source</message>
+	<message key="grid.user.mustProvideName">Please provide at least a last name for the user first.</message>
+	<message key="grid.user.generatePassword">Generate Password</message>
+	<message key="grid.user.generatePasswordDescription">Generate random password for this user.</message>
+	<message key="grid.user.notifyUser">Notify User</message>
+	<message key="grid.user.notifyUserDescription">Send user a welcome email.</message>
+	<message key="grid.user.mustChangePassword">Change Password</message>
+	<message key="grid.user.mustChangePasswordDescription">User must change password on next log in.</message>
+	<message key="grid.user.mustChangePasswordDescriptionOld">Require the user to change their password the next time they log in.</message>
+	<message key="grid.user.moreDetails">More User Details</message>
+	<message key="grid.user.lessDetails">Less User Details</message>
+	<message key="grid.user.userDetails">User Details</message>
+	<message key="grid.user.userRoles">User Roles</message>
+	<message key="grid.user.userNoRoles">This user does not have any roles.</message>
+	<message key="grid.user.step1">Step #1: Fill in User Details</message>
+	<message key="grid.user.step2">Step #2: Add User Roles</message>
+	<message key="grid.user.addRoles">Add Roles</message>
+	<message key="grid.user.selectUser">Select User</message>
+	<message key="grid.user.pleaseSelectUser">Please select a user</message>
 </locale>

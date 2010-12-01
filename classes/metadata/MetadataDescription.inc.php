@@ -94,21 +94,19 @@
  *    define compliance as "roundtripability". This means we must be able
  *    to convert our object oriented data encoding to a fully standard
  *    compliant encoding and back without any data loss.
- *
- *  TODO: Develop an object representation for NLM's "collab", "anonymous" and "etal".
- *
- *  TODO: Move Harvester's Schema and Record to the new Metadata object model.
  */
 
-// $Id$
 
-import('core.DataObject');
+import('lib.pkp.classes.core.DataObject');
 
 define('METADATA_DESCRIPTION_REPLACE_ALL', 0x01);
 define('METADATA_DESCRIPTION_REPLACE_PROPERTIES', 0x02);
 define('METADATA_DESCRIPTION_REPLACE_NOTHING', 0x03);
 
 class MetadataDescription extends DataObject {
+	/** @var string fully qualified class name of the meta-data schema this description complies to */
+	var $_metadataSchemaName;
+
 	/** @var MetadataSchema the schema this description complies to */
 	var $_metadataSchema;
 
@@ -119,12 +117,24 @@ class MetadataDescription extends DataObject {
 	var $_assocId;
 
 	/**
+	 * @var string an (optional) display name that describes the contents
+	 *  of this meta-data description to the end user.
+	 */
+	var $_displayName;
+
+	/**
+	 * @var integer sequence id used when saving several descriptions
+	 *  of the same subject.
+	 */
+	var $_seq;
+
+	/**
 	 * Constructor
 	 */
-	function MetadataDescription(&$metadataSchema, $assocType) {
-		assert(is_a($metadataSchema, 'MetadataSchema') && is_integer($assocType));
+	function MetadataDescription($metadataSchemaName, $assocType) {
+		assert(is_string($metadataSchemaName) && is_integer($assocType));
 		parent::DataObject();
-		$this->_metadataSchema =& $metadataSchema;
+		$this->_metadataSchemaName = $metadataSchemaName;
 		$this->_assocType = $assocType;
 	}
 
@@ -132,10 +142,24 @@ class MetadataDescription extends DataObject {
 	// Get/set methods
 	//
 	/**
+	 * Get the fully qualified class name of
+	 * the supported meta-data schema.
+	 */
+	function getMetadataSchemaName() {
+		return $this->_metadataSchemaName;
+	}
+
+	/**
 	 * Get the metadata schema
 	 * @return MetadataSchema
 	 */
 	function &getMetadataSchema() {
+		// Lazy-load the meta-data schema if this has
+		// not been done before.
+		if (is_null($this->_metadataSchema)) {
+			$this->_metadataSchema =& instantiate($this->getMetadataSchemaName(), 'MetadataSchema');
+			assert(is_object($this->_metadataSchema));
+		}
 		return $this->_metadataSchema;
 	}
 
@@ -177,6 +201,38 @@ class MetadataDescription extends DataObject {
 	}
 
 	/**
+	 * Set the (optional) display name
+	 * @param $displayName string
+	 */
+	function setDisplayName($displayName) {
+		$this->_displayName = $displayName;
+	}
+
+	/**
+	 * Get the (optional) display name
+	 * @return string
+	 */
+	function getDisplayName() {
+		return $this->_displayName;
+	}
+
+	/**
+	 * Set the sequence id
+	 * @param $seq integer
+	 */
+	function setSeq($seq) {
+		$this->_seq = $seq;
+	}
+
+	/**
+	 * Get the sequence id
+	 * @return integer
+	 */
+	function getSeq() {
+		return $this->_seq;
+	}
+
+	/**
 	 * Add a meta-data statement. Statements can only be added
 	 * for properties that are part of the meta-data schema. This
 	 * method will also check the validity of the value for the
@@ -196,9 +252,6 @@ class MetadataDescription extends DataObject {
 		// Check that the property is allowed for the described resource
 		if (!in_array($this->_assocType, $property->getAssocTypes())) return false;
 
-		// Check that the value is compliant with the property specification
-		if (!$property->isValid($value)) return false;
-
 		// Handle translation
 		$translated = $property->getTranslated();
 		if (isset($locale) && !$translated) return false;
@@ -206,6 +259,9 @@ class MetadataDescription extends DataObject {
 			// Retrieve the current locale
 			$locale = Locale::getLocale();
 		}
+
+		// Check that the value is compliant with the property specification
+		if ($property->isValid($value, $locale) === false) return false;
 
 		// Handle cardinality
 		$existingValue =& $this->getStatement($propertyName, $locale);
@@ -297,7 +353,8 @@ class MetadataDescription extends DataObject {
 	 * @param $propertyName string
 	 * @return array all translations of a given property; if the
 	 *  property has cardinality "many" then this returns a two-dimensional
-	 *  array whereby the first key represents the locale and the second.
+	 *  array whereby the first key represents the locale and the second
+	 *  the translated values.
 	 */
 	function &getStatementTranslations($propertyName) {
 		assert($this->isTranslatedProperty($propertyName));
@@ -486,6 +543,7 @@ class MetadataDescription extends DataObject {
 		assert(is_a($property, 'MetadataProperty'));
 		return $property->getTranslated();
 	}
+
 
 	//
 	// Private helper methods

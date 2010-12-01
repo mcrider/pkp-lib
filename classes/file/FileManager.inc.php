@@ -16,11 +16,17 @@
  * @brief Class defining basic operations for file management.
  */
 
-// $Id$
-
 
 define('FILE_MODE_MASK', 0666);
 define('DIRECTORY_MODE_MASK', 0777);
+
+define('DOCUMENT_TYPE_DEFAULT', 'default');
+define('DOCUMENT_TYPE_EXCEL', 'excel');
+define('DOCUMENT_TYPE_HTML', 'html');
+define('DOCUMENT_TYPE_IMAGE', 'image');
+define('DOCUMENT_TYPE_PDF', 'pdf');
+define('DOCUMENT_TYPE_WORD', 'word');
+define('DOCUMENT_TYPE_ZIP', 'zip');
 
 class FileManager {
 	/**
@@ -145,7 +151,7 @@ class FileManager {
 			return FileManager::setMode($dest, FILE_MODE_MASK);
 		return false;
 	}
-	
+
 	/**
 	 * Copy a directory.
 	 * Adapted from code by gimmicklessgpt at gmail dot com, at http://php.net/manual/en/function.copy.php
@@ -218,28 +224,28 @@ class FileManager {
 	 * Download a file.
 	 * Outputs HTTP headers and file content for download
 	 * @param $filePath string the location of the file to be sent
-	 * @param $type string the MIME type of the file, optional
+	 * @param $mediaType string the MIME type of the file, optional
 	 * @param $inline print file as inline instead of attachment, optional
 	 * @return boolean
 	 */
-	function downloadFile($filePath, $type = null, $inline = false) {
+	function downloadFile($filePath, $mediaType = null, $inline = false) {
 		$result = null;
-		if (HookRegistry::call('FileManager::downloadFile', array(&$filePath, &$type, &$inline, &$result))) return $result;
+		if (HookRegistry::call('FileManager::downloadFile', array(&$filePath, &$mediaType, &$inline, &$result))) return $result;
 		if (is_readable($filePath)) {
-			if ($type == null) {
-				$type = String::mime_content_type($filePath);
-				if (empty($type)) $type = 'application/octet-stream';
+			if ($mediaType == null) {
+				$mediaType = String::mime_content_type($filePath);
+				if (empty($mediaType)) $mediaType = 'application/octet-stream';
 			}
 
 			Registry::clear(); // Free some memory
 
-			header("Content-Type: $type");
+			header("Content-Type: $mediaType");
 			header("Content-Length: ".filesize($filePath));
 			header("Content-Disposition: " . ($inline ? 'inline' : 'attachment') . "; filename=\"" .basename($filePath)."\"");
 			header("Cache-Control: private"); // Workarounds for IE weirdness
 			header("Pragma: public");
 
-			import('file.FileManager');
+			import('lib.pkp.classes.file.FileManager');
 			FileManager::readFile($filePath, true);
 
 			return true;
@@ -303,7 +309,6 @@ class FileManager {
 		if (file_exists($file)) {
 			if (is_dir($file)) {
 				$handle = opendir($file);
-				import('file.FileManager');
 				while (($filename = readdir($handle)) !== false) {
 					if ($filename != '.' && $filename != '..') {
 						FileManager::rmtree($file . '/' . $filename);
@@ -348,6 +353,38 @@ class FileManager {
 				return file_exists($filePath) && is_dir($filePath);
 			default:
 				return false;
+		}
+	}
+
+	/**
+	 * Returns a file type, based on generic categories defined above
+	 * @param $type String
+	 * @return string (Enuemrated DOCUMENT_TYPEs)
+	 */
+	function getDocumentType($type) {
+		if ( FileManager::getImageExtension($type) )
+			return DOCUMENT_TYPE_IMAGE;
+		switch ($type) {
+			case 'application/pdf':
+			case 'application/x-pdf':
+			case 'text/pdf':
+			case 'text/x-pdf':
+				return DOCUMENT_TYPE_PDF;
+			case 'application/word':
+				return DOCUMENT_TYPE_WORD;
+			case 'application/excel':
+				return DOCUMENT_TYPE_EXCEL;
+			case 'text/html':
+				return DOCUMENT_TYPE_HTML;
+			case 'application/zip':
+			case 'application/x-zip':
+			case 'application/x-zip-compressed':
+			case 'application/x-compress':
+			case 'application/x-compressed':
+			case 'multipart/x-zip':
+				return DOCUMENT_TYPE_ZIP;
+			default:
+				return DOCUMENT_TYPE_DEFAULT;
 		}
 	}
 

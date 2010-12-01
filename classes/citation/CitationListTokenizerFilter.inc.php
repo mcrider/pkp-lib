@@ -13,33 +13,21 @@
  *  and returns an array of raw citation strings.
  */
 
-// $Id$
-
-import('filter.Filter');
+import('lib.pkp.classes.filter.Filter');
 
 class CitationListTokenizerFilter extends Filter {
+	/**
+	 * Constructor
+	 */
+	function CitationListTokenizerFilter() {
+		$this->setDisplayName('Split a reference list into separate citations');
+
+		parent::Filter('primitive::string', 'primitive::string[]');
+	}
+
 	//
 	// Implement template methods from Filter
 	//
-	/**
-	 * @see Filter::supports()
-	 * @param $input mixed
-	 * @param $output mixed
-	 * @return boolean
-	 */
-	function supports(&$input, &$output) {
-		// Input validation
-		if (!is_string($input)) return false;
-
-		// Output validation
-		if (is_null($output)) return true;
-		if (!is_array($output)) return false;
-		foreach($output as $citationString) {
-			if (!is_string($citationString)) return false;
-		}
-		return true;
-	}
-
 	/**
 	 * @see Filter::process()
 	 * @param $input string
@@ -48,13 +36,22 @@ class CitationListTokenizerFilter extends Filter {
 	function &process(&$input) {
 		// The default implementation assumes that raw citations are
 		// separated with line endings.
-		// 1) Remove empty lines
+		// 1) Remove empty lines and normalize line endings.
 		$input = String::regexp_replace('/[\r\n]+/s', "\n", $input);
-		// 2) Break up at line endings
-		$output = explode("\n", $input);
-		// TODO: Implement more complex treatment, e.g. filtering of
-		// number strings at the beginning of each string, etc.
-		return $output;
+		// 2) Remove trailing/leading line breaks.
+		$input = trim($input, "\n");
+		// 3) Break up at line endings.
+		if (empty($input)) {
+			$citations = array();
+		} else {
+			$citations = explode("\n", $input);
+		}
+		// 4) Remove numbers from the beginning of each citation.
+		foreach($citations as $index => $citation) {
+			$citations[$index] = String::regexp_replace('/^\s*[\[#]?[0-9]+[.)\]]?\s*/', '', $citation);
+		}
+
+		return $citations;
 	}
 }
 ?>

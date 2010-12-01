@@ -12,7 +12,7 @@
  * @brief Validation check using a regular expression.
  */
 
-import ('validation.Validator');
+import ('lib.pkp.classes.validation.Validator');
 
 class ValidatorRegExp extends Validator {
 
@@ -42,6 +42,7 @@ class ValidatorRegExp extends Validator {
 	function isValid($value) {
 		return (boolean)String::regexp_match_get($this->_regExp, $value, $this->_matches);
 	}
+
 
 	//
 	// Protected methods for use by sub-classes

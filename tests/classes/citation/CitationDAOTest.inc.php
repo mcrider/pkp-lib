@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @file tests/metadata/CitationDAOTest.inc.php
+ * @file tests/classes/citation/CitationDAOTest.inc.php
  *
  * Copyright (c) 2000-2010 John Willinsky
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
@@ -13,31 +13,31 @@
  * @brief Test class for CitationDAO.
  */
 
-import('tests.DatabaseTestCase');
-import('citation.CitationDAO');
-import('citation.Citation');
-import('metadata.nlm.NlmNameSchema');
-import('metadata.nlm.NlmCitationSchema');
-import('metadata.MetadataDescription');
+import('lib.pkp.tests.DatabaseTestCase');
+import('lib.pkp.classes.citation.CitationDAO');
+import('lib.pkp.classes.citation.Citation');
+import('lib.pkp.classes.metadata.MetadataDescription');
+
+if (!defined('ASSOC_TYPE_ARTICLE')) {
+	define('ASSOC_TYPE_ARTICLE', 0x9999);
+}
 
 class CitationDAOTest extends DatabaseTestCase {
-	private $citationDAO;
-
-	protected function setUp() {
-		parent::setUp();
-		$this->citationDAO = DAORegistry::getDAO('CitationDAO');
-	}
-
+	/**
+	 * @covers CitationDAO
+	 */
 	public function testCitationCrud() {
-		$nameSchema = new NlmNameSchema();
-		$nameDescription = new MetadataDescription($nameSchema, ASSOC_TYPE_AUTHOR);
+		$citationDAO = DAORegistry::getDAO('CitationDAO'); /* @var $citationDao CitationDAO */
+
+		$nameSchemaName = 'lib.pkp.plugins.metadata.nlm30.schema.Nlm30NameSchema';
+		$nameDescription = new MetadataDescription($nameSchemaName, ASSOC_TYPE_AUTHOR);
 		$nameDescription->addStatement('given-names', $value = 'Peter');
 		$nameDescription->addStatement('given-names', $value = 'B');
 		$nameDescription->addStatement('surname', $value = 'Bork');
 		$nameDescription->addStatement('prefix', $value = 'Mr.');
 
-		$citationSchema = new NlmCitationSchema();
-		$citationDescription = new MetadataDescription($citationSchema, ASSOC_TYPE_CITATION);
+		$citationSchemaName = 'lib.pkp.plugins.metadata.nlm30.schema.Nlm30CitationSchema';
+		$citationDescription = new MetadataDescription($citationSchemaName, ASSOC_TYPE_CITATION);
 		$citationDescription->addStatement('person-group[@person-group-type="author"]', $nameDescription);
 		$citationDescription->addStatement('article-title', $value = 'PHPUnit in a nutshell', 'en_US');
 		$citationDescription->addStatement('article-title', $value = 'PHPUnit in Kürze', 'de_DE');
@@ -45,49 +45,78 @@ class CitationDAOTest extends DatabaseTestCase {
 		$citationDescription->addStatement('size', $value = 320);
 		$citationDescription->addStatement('uri', $value = 'http://phpunit.org/nutshell');
 
+		// Add a simple source description.
+		$sourceDescription = new MetadataDescription($citationSchemaName, ASSOC_TYPE_CITATION);
+		$sourceDescription->setDisplayName('test');
+		$sourceDescription->addStatement('article-title', $value = 'a simple source description', 'en_US');
+		$sourceDescription->setSeq(0);
+
 		$citation = new Citation('raw citation');
 		$citation->setAssocType(ASSOC_TYPE_ARTICLE);
 		$citation->setAssocId(999999);
-		$citation->setEditedCitation('edited citation');
-		$citation->setParseScore(50);
+		$citation->setSeq(50);
+		$citation->addSourceDescription($sourceDescription);
 		$citation->injectMetadata($citationDescription);
 
-		// Create citation
-		$citationId = $this->citationDAO->insertCitation($citation);
+		// Create citation.
+		$citationId = $citationDAO->insertObject($citation);
 		self::assertTrue(is_numeric($citationId));
 		self::assertTrue($citationId > 0);
 
-		// Retrieve citation
-		$citationById = $this->citationDAO->getCitation($citationId);
-		$citationById->getMetadataFieldNames(); // Initializes internal state for comparison.
+		// Retrieve citation.
+		$citationById = $citationDAO->getObjectById($citationId);
+		// Fix state differences for comparison.
+		$citation->removeSupportedMetadataAdapter($citationSchemaName);
+		$citationById->removeSupportedMetadataAdapter($citationSchemaName);
+		$citationById->_extractionAdaptersLoaded = true;
+		$citationById->_injectionAdaptersLoaded = true;
+		$sourceDescription->setAssocId($citationId);
+		$sourceDescription->removeSupportedMetadataAdapter($citationSchemaName);
+		$sourceDescriptions = $citationById->getSourceDescriptions();
+		$sourceDescriptions['test']->getMetadataSchema(); // this will instantiate the meta-data schema internally.
 		self::assertEquals($citation, $citationById);
 
-		$citationsByAssocIdDaoFactory = $this->citationDAO->getCitationsByAssocId(ASSOC_TYPE_ARTICLE, 999999);
-		$citationsByAssocId = $citationsByAssocIdDaoFactory->toArray();
+		$citationsByAssocIdDaoFactory = $citationDAO->getObjectsByAssocId(ASSOC_TYPE_ARTICLE, 999999);
+		$citationsByAssocId =& $citationsByAssocIdDaoFactory->toArray();
 		self::assertEquals(1, count($citationsByAssocId));
-		$citationsByAssocId[0]->getMetadataFieldNames(); // Initializes internal state for comparison.
+		// Fix state differences for comparison.
+		$citationsByAssocId[0]->_extractionAdaptersLoaded = true;
+		$citationsByAssocId[0]->_injectionAdaptersLoaded = true;
+		$citationsByAssocId[0]->removeSupportedMetadataAdapter($citationSchemaName);
+		$sourceDescriptionsByAssocId = $citationsByAssocId[0]->getSourceDescriptions();
+		$sourceDescriptionsByAssocId['test']->getMetadataSchema(); // this will instantiate the meta-data schema internally.
 		self::assertEquals($citation, $citationsByAssocId[0]);
 
-		// Update citation
+		// Update citation.
 		$citationDescription->removeStatement('date');
 		$citationDescription->addStatement('article-title', $value = 'PHPUnit rápido', 'pt_BR');
+
+		// Update source descriptions.
+		$sourceDescription->addStatement('article-title', $value = 'edited source description', 'en_US', true);
 
 		$updatedCitation = new Citation('another raw citation');
 		$updatedCitation->setId($citationId);
 		$updatedCitation->setAssocType(ASSOC_TYPE_ARTICLE);
 		$updatedCitation->setAssocId(999998);
-		$updatedCitation->setEditedCitation('another edited citation');
-		$updatedCitation->setParseScore(50);
+		$updatedCitation->setSeq(50);
+		$updatedCitation->addSourceDescription($sourceDescription);
 		$updatedCitation->injectMetadata($citationDescription);
 
-		$this->citationDAO->updateCitation($updatedCitation);
-		$citationAfterUpdate = $this->citationDAO->getCitation($citationId);
-		$citationAfterUpdate->getMetadataFieldNames(); // Initializes internal state for comparison.
+		$citationDAO->updateObject($updatedCitation);
+		$citationAfterUpdate = $citationDAO->getObjectById($citationId);
+		// Fix state differences for comparison.
+		$updatedCitation->removeSupportedMetadataAdapter($citationSchemaName);
+		$citationAfterUpdate->removeSupportedMetadataAdapter($citationSchemaName);
+		$citationAfterUpdate->_extractionAdaptersLoaded = true;
+		$citationAfterUpdate->_injectionAdaptersLoaded = true;
+		$sourceDescriptionsAfterUpdate = $citationAfterUpdate->getSourceDescriptions();
+		$sourceDescriptionsAfterUpdate['test']->getMetadataSchema(); // this will instantiate the meta-data schema internally.
+		$sourceDescription->removeSupportedMetadataAdapter($citationSchemaName);
 		self::assertEquals($updatedCitation, $citationAfterUpdate);
 
 		// Delete citation
-		$this->citationDAO->deleteCitationsByAssocId(ASSOC_TYPE_ARTICLE, 999998);
-		self::assertNull($this->citationDAO->getCitation($citationId));
+		$citationDAO->deleteObjectsByAssocId(ASSOC_TYPE_ARTICLE, 999998);
+		self::assertNull($citationDAO->getObjectById($citationId));
 	}
 }
 ?>

@@ -1,6 +1,6 @@
 <?php
 /**
- * @file classes/handler/HandlerValidatorPress.inc.php
+ * @file classes/handler/HandlerValidatorRoles.inc.php
  *
  * Copyright (c) 2003-2010 John Willinsky
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
@@ -9,15 +9,14 @@
  * @ingroup security
  *
  * @brief Class to represent a page validation check.
+ *
+ * NB: Deprecated - please use RoleBasedHandlerOperationPolicy instead.
  */
 
-import('handler.validation.HandlerValidator');
+import('lib.pkp.classes.handler.validation.HandlerValidatorPolicy');
+import('lib.pkp.classes.security.authorization.RoleBasedHandlerOperationPolicy');
 
-class HandlerValidatorRoles extends HandlerValidator {
-	var $roles;
-
-	var $all;
-
+class HandlerValidatorRoles extends HandlerValidatorPolicy {
 	/**
 	 * Constructor.
 	 * @param $handler Handler the associated form
@@ -25,36 +24,10 @@ class HandlerValidatorRoles extends HandlerValidator {
 	 * @param $all bool flag for whether all roles must exist or just 1
 	 */
 	function HandlerValidatorRoles(&$handler, $redirectLogin = true, $message = null, $additionalArgs = array(), $roles, $all = false) {
-		parent::HandlerValidator($handler, $redirectLogin, $message, $additionalArgs);
-		$this->roles = $roles;
-		$this->all = $all;
-	}
-
-	/**
-	 * Check if field value is valid.
-	 * Value is valid if it is empty and optional or validated by user-supplied function.
-	 * @return boolean
-	 */
-	function isValid() {
-		$press =& Request::getPress();
-		$pressId = ($press)?$press->getId():0;
-
-		$user = Request::getUser();
-		if ( !$user ) return false;
-
-		$roleDao =& DAORegistry::getDAO('RoleDAO');
-		$returner = true;
-		foreach ( $this->roles as $roleId ) {
-			if ( $roleId == ROLE_ID_SITE_ADMIN ) {
-				$exists = $roleDao->userHasRole(0, $user->getId(), $roleId);
-			} else {
-				$exists = $roleDao->userHasRole($pressId, $user->getId(), $roleId);
-			}
-			if ( !$this->all && $exists) return true;
-			$returner = $returner && $exists;
-		}
-
-		return $returner;
+		$application =& PKPApplication::getApplication();
+		$request =& $application->getRequest();
+		$policy = new RoleBasedHandlerOperationPolicy($request, $roles, array(), $message, $all, true);
+		parent::HandlerValidatorPolicy($policy, $handler, $redirectLogin, $message, $additionalArgs);
 	}
 }
 

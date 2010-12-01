@@ -8,3 +8,4 @@
  *}
 
 <input type="{if $FBV_isPassword}password{else}text{/if}" {$FBV_textInputParams} class="field text{if $FBV_sizeInfo} {$FBV_sizeInfo|escape}{/if}{if $FBV_validation} {$FBV_validation}{/if}"{if $FBV_disabled} disabled="disabled"{/if}/>
+

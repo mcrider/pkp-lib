@@ -11,6 +11,29 @@
 
 <div id="{$listbuilderId}" class="listbuilder">
 	<div class="wrapper">
+		{assign var="additionalData" value=$listbuilder->getAdditionalData()}
+		{if !empty($additionalData)}
+		<div id="additionalData-{$listbuilderId}{if $itemId}-{$itemId}{/if}">
+ 			<ul>
+		        <li>
+					{foreach from=$additionalData key=dataKey item=dataValue}
+						{if is_array($dataValue)}
+							{foreach name="dataArray" from=$dataValue item=arrayValue}
+								{assign var="iteration" value=$smarty.foreach.dataArray.iteration}
+								<span>
+									<input type="hidden" name="additionalData-{$listbuilderId}-{$dataKey}[]" id="additionalData-{$listbuilderId}-{$dataKey}-{$iteration}" value="{$arrayValue|escape}" />
+								</span>
+							{/foreach}
+						{else}
+							<span>
+								<input type="hidden" name="additionalData-{$listbuilderId}-{$dataKey}" id="additionalData-{$listbuilderId}-{$dataKey}" value="{$dataValue|escape}" />
+							</span>
+						{/if}
+					{/foreach}
+				</li>
+			</ul>
+		</div>
+		{/if}
 		<div class="unit size2of5" id="source-{$listbuilderId}{if $itemId}-{$itemId}{/if}">
  			<ul>
 		        <li>
@@ -55,9 +78,9 @@
 		</div>
 		<div class="unit size1of10 listbuilder_controls">
 			<a href="#" id="add-{$listbuilderId}{if $itemId}-{$itemId}{/if}" onclick="return false;" class="add_item">
-				<span class="hidetext">Add</span></a>
+				<span class="hidetext">{translate key="common.add"}</span></a>
 			<a href="#" id="delete-{$listbuilderId}{if $itemId}-{$itemId}{/if}" onclick="return false;" class="remove_item">
-				<span class="hidetext">Delete</span></a>
+				<span class="hidetext">{translate key="common.delete"}</span></a>
 		</div>
 		<div id="results-{$listbuilderId}{if $itemId}-{$itemId}{/if}" class="unit size1of2 lastUnit listbuilder_results">
 		    <ul>
@@ -81,4 +104,5 @@
 	{/literal}
 	</script>
 </div>
+
 

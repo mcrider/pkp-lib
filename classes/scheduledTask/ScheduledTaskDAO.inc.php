@@ -17,10 +17,8 @@
  * @brief Operations for retrieving and modifying Scheduled Task data.
  */
 
-// $Id$
 
-
-import('scheduledTask.ScheduledTask');
+import('lib.pkp.classes.scheduledTask.ScheduledTask');
 
 class ScheduledTaskDAO extends DAO {
 	/**

@@ -64,7 +64,8 @@ class QueuedPaymentDAO extends DAO {
 			)
 		);
 
-		return $this->getInsertQueuedPaymentId();
+		$queuedPayment->setPaymentId($this->getInsertQueuedPaymentId());
+		return $queuedPayment->getPaymentId();
 	}
 
 	/**
@@ -103,6 +104,15 @@ class QueuedPaymentDAO extends DAO {
 		return $this->update(
 			'DELETE FROM queued_payments WHERE queued_payment_id = ?',
 			array((int) $queuedPaymentId)
+		);
+	}
+
+	/**
+	 * Delete expired queued payments.
+	 */
+	function deleteExpiredQueuedPayments() {
+		return $this->update(
+			'DELETE FROM queued_payments WHERE expiry_date < now()'
 		);
 	}
 }

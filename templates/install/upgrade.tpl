@@ -38,3 +38,4 @@
 </form>
 
 {include file="common/footer.tpl"}
+

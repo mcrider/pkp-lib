@@ -16,6 +16,9 @@
  *  fetched can be determined from the id (=row id) which is always set.
  */
 
+define('GRID_ACTION_POSITION_ROW_CLICK', 'row-click');
+define('GRID_ACTION_POSITION_ROW_LEFT', 'row-left');
+
 class GridRow {
 	/**
 	 * @var string identifier of the row instance - must be unique
@@ -101,11 +104,29 @@ class GridRow {
 	/**
 	 * Get all actions for a given position within the controller
 	 * @param $position string the position of the actions
-	 * @return array the GridActions for the given position
+	 * @return array the LinkActions for the given position
 	 */
 	function getActions($position = GRID_ACTION_POSITION_DEFAULT) {
 		if(!isset($this->_actions[$position])) return array();
 		return $this->_actions[$position];
+	}
+
+	/**
+	 * Get actions for a given cell in this row specified
+	 * by its column.
+	 *
+	 * NB: Subclasses have to override this method to
+	 * actually provide cell-specific actions based on row
+	 * and column information. The default implementation
+	 * returns an empty array.
+	 *
+	 * @param $column GridColumn
+	 * @return array the LinkActions for the cell
+	 */
+	function getCellActions(&$request, &$column, $position = GRID_ACTION_POSITION_DEFAULT) {
+		// The default implementation returns an empty array
+		$actions = array();
+		return $actions;
 	}
 
 	/**

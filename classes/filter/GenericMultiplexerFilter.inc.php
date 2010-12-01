@@ -16,63 +16,62 @@
  *  to a de-multiplexer filter.
  */
 
-// $Id$
 
-import('filter.Filter');
+import('lib.pkp.classes.filter.CompositeFilter');
 
-class GenericMultiplexerFilter extends Filter {
-	/** @var array An unordered array of filters that we run the input over */
-	var $_filters = array();
+class GenericMultiplexerFilter extends CompositeFilter {
+	/**
+	 * @var boolean whether some sub-filters can fail as long as at least one
+	 *  filter returns a result.
+	 */
+	var $_tolerateFailures = false;
 
 	/**
 	 * Constructor
+	 * @param $filterGroup FilterGroup
+	 * @param $displayName string
 	 */
-	function GenericMultiplexerFilter() {
-		parent::Filter();
+	function GenericMultiplexerFilter(&$filterGroup, $displayName = null) {
+		parent::CompositeFilter($filterGroup, $displayName);
 	}
 
+
 	//
-	// Public methods
+	// Setters and Getters
 	//
 	/**
-	 * Adds a filter to the filter list.
-	 * @param $filter Filter
+	 * Set to true if sub-filters can fail as long as
+	 * at least one filter returns a result.
+	 * @param $tolerateFailures boolean
 	 */
-	function addFilter(&$filter) {
-		assert(is_a($filter, 'Filter'));
-		$this->_filters[] =& $filter;
+	function setTolerateFailures($tolerateFailures) {
+		$this->_tolerateFailures = $tolerateFailures;
 	}
+
+	/**
+	 * Returns true when sub-filters can fail as long
+	 * as at least one filter returns a result.
+	 * @return boolean
+	 */
+	function getTolerateFailures() {
+		return $this->_tolerateFailures;
+	}
+
+
+	//
+	// Implementing abstract template methods from PersistentFilter
+	//
+	/**
+	 * @see PersistentFilter::getClassName()
+	 */
+	function getClassName() {
+		return 'lib.pkp.classes.filter.GenericMultiplexerFilter';
+	}
+
 
 	//
 	// Implementing abstract template methods from Filter
 	//
-	/**
-	 * @see Filter::supports()
-	 * @param $input mixed
-	 * @param $output mixed
-	 * @return boolean
-	 */
-	function supports(&$input, &$output) {
-		// Preliminary check: do we have filters at all?
-		if(!count($this->_filters)) return false;
-
-		if (!is_null($output)) {
-			// Pre-check the number of the output objects
-			if (!is_array($output) || count($output) != count($this->_filters)) return false;
-		}
-
-		// Iterate over the filters and check the
-		// corresponding inputs and outputs.
-		foreach($this->_filters as $outputNumber => $filter) {
-			$currentOutput = (is_null($output) ? null : $output[$outputNumber]);
-			if (!$filter->supports($input, $currentOutput)) return false;
-		}
-
-		// If all individual filter validations passed then this
-		// filter supports the given data
-		return true;
-	}
-
 	/**
 	 * @see Filter::process()
 	 * @param $input mixed
@@ -82,7 +81,7 @@ class GenericMultiplexerFilter extends Filter {
 		// Iterate over all filters and return the results
 		// as an array.
 		$output = array();
-		foreach($this->_filters as $filter) {
+		foreach($this->getFilters() as $filter) {
 			// Make a copy of the input so that the filters don't interfere
 			// with each other.
 			if (is_object($input)) {
@@ -91,9 +90,32 @@ class GenericMultiplexerFilter extends Filter {
 				$clonedInput = $input;
 			}
 
-			$output[] = $filter->execute($clonedInput);
-			unset ($clonedInput);
+			// Execute the filter
+			$intermediateOutput =& $filter->execute($clonedInput);
+
+			// Propagate errors of sub-filters (if any)
+			foreach($filter->getErrors() as $errorMessage) $this->addError($errorMessage);
+
+			// Handle sub-filter failure.
+			if (is_null($intermediateOutput))
+				if ($this->getTolerateFailures()) {
+					continue;
+				} else {
+					// No need to go on as the filter will fail
+					// anyway out output validation so we better
+					// safe time and return immediately.
+					$output = null;
+					break;
+			} else {
+				// Add the output to the output array.
+				$output[] =& $intermediateOutput;
+			}
+			unset($clonedInput, $intermediateOutput);
 		}
+
+		// Fail in any case if all sub-filters failed.
+		if (empty($output)) $output = null;
+
 		return $output;
 	}
 }

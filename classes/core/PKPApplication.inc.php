@@ -13,15 +13,24 @@
  *
  */
 
-// $Id$
-
 
 define('REALLY_BIG_NUMBER', 10000);
 
 define('ROUTE_COMPONENT', 'component');
 define('ROUTE_PAGE', 'page');
 
+define('ASSOC_TYPE_USER',	0x00001000); // This value used because of bug #6068
+define('ASSOC_TYPE_USER_GROUP', 0x0100002);
+
+define('ASSOC_TYPE_CITATION', 0x0100003);
+
+define('ASSOC_TYPE_AUTHOR', 0x0100004);
+define('ASSOC_TYPE_EDITOR', 0x0100005);
+
 class PKPApplication {
+	var $enabledProducts;
+	var $allProducts;
+
 	function PKPApplication() {
 		// Configure error reporting
 		// FIXME: Error logging needs to be suppressed for strict
@@ -35,7 +44,7 @@ class PKPApplication {
 		@error_reporting($errorReportingLevel);
 
 		// Instantiate the profiler
-		import('core.PKPProfiler');
+		import('lib.pkp.classes.core.PKPProfiler');
 		$pkpProfiler = new PKPProfiler();
 
 		// Begin debug logging
@@ -45,15 +54,15 @@ class PKPApplication {
 		// Seed random number generator
 		mt_srand(((double) microtime()) * 1000000);
 
-		import('core.Core');
-		import('core.String');
-		import('core.Registry');
+		import('lib.pkp.classes.core.Core');
+		import('lib.pkp.classes.core.String');
+		import('lib.pkp.classes.core.Registry');
 
-		import('config.Config');
+		import('lib.pkp.classes.config.Config');
 
 		if (Config::getVar('debug', 'display_errors')) {
 			// Try to switch off normal error display when error display
-			// is being managed by OJS.
+			// is being managed by us.
 			@ini_set('display_errors', false);
 		}
 
@@ -63,26 +72,27 @@ class PKPApplication {
 			// configuration and we cannot declare the Config class before
 			// we've switched of deprecation warnings as its declaration
 			// causes warnings itself.
-			if (defined('E_STRICT')) $errorReportingLevel |= E_STRICT;
-			if (defined('E_DEPRECATED')) $errorReportingLevel |= E_DEPRECATED;
+			// FIXME: When we drop PHP4 support and can declare static methods
+			// as such then we can also include E_STRICT/E_DEPRECATED here as
+			// nearly all strict/deprecated warnings concern PHP4 support.
 			@error_reporting($errorReportingLevel);
 		}
 
 		Registry::set('application', $this);
 
-		import('db.DAORegistry');
-		import('db.XMLDAO');
+		import('lib.pkp.classes.db.DAORegistry');
+		import('lib.pkp.classes.db.XMLDAO');
 
-		import('cache.CacheManager');
+		import('lib.pkp.classes.cache.CacheManager');
 
-		import('security.Validation');
-		import('session.SessionManager');
-		import('template.TemplateManager');
+		import('classes.security.Validation');
+		import('lib.pkp.classes.session.SessionManager');
+		import('classes.template.TemplateManager');
 
-		import('plugins.PluginRegistry');
-		import('plugins.HookRegistry');
+		import('lib.pkp.classes.plugins.PluginRegistry');
+		import('lib.pkp.classes.plugins.HookRegistry');
 
-		import('i18n.Locale');
+		import('classes.i18n.Locale');
 
 		String::init();
 		set_error_handler(array($this, 'errorHandler'));
@@ -112,7 +122,7 @@ class PKPApplication {
 
 	/**
 	 * Get the current application object
-	 * @return object
+	 * @return Application
 	 */
 	function &getApplication() {
 		$application =& Registry::get('application');
@@ -127,7 +137,7 @@ class PKPApplication {
 		$request =& Registry::get('request', true, null);
 
 		if (is_null($request)) {
-			import('core.Request');
+			import('classes.core.Request');
 
 			// Implicitly set request by ref in the registry
 			$request = new Request();
@@ -144,7 +154,7 @@ class PKPApplication {
 		$dispatcher =& Registry::get('dispatcher', true, null);
 
 		if (is_null($dispatcher)) {
-			import('core.Dispatcher');
+			import('lib.pkp.classes.core.Dispatcher');
 
 			// Implicitly set dispatcher by ref in the registry
 			$dispatcher = new Dispatcher();
@@ -153,8 +163,8 @@ class PKPApplication {
 			$dispatcher->setApplication($this->getApplication());
 
 			// Inject router configuration
-			$dispatcher->addRouterName('core.PKPComponentRouter', ROUTE_COMPONENT);
-			$dispatcher->addRouterName('core.PageRouter', ROUTE_PAGE);
+			$dispatcher->addRouterName('lib.pkp.classes.core.PKPComponentRouter', ROUTE_COMPONENT);
+			$dispatcher->addRouterName('classes.core.PageRouter', ROUTE_PAGE);
 		}
 
 		return $dispatcher;
@@ -221,33 +231,100 @@ class PKPApplication {
 	}
 
 	/**
+	 * This function retrieves all enabled product versions once
+	 * from the database and caches the result for further
+	 * access.
+	 *
+	 * @param $category string
+	 * @return array
+	 */
+	function &getEnabledProducts($category = null) {
+		if (is_null($this->enabledProducts)) {
+			$contextDepth = $this->getContextDepth();
+
+			$settingContext = array();
+			if ($contextDepth > 0) {
+				$request =& $this->getRequest();
+				$router =& $request->getRouter();
+
+				// Try to identify the main context (e.g. journal, conference, press),
+				// will be null if none found.
+				$mainContext =& $router->getContext($request, 1);
+
+				// Create the context for the setting if found
+				if ($mainContext) $settingContext[] = $mainContext->getId();
+				$settingContext = array_pad($settingContext, $contextDepth, 0);
+				$settingContext = array_combine($this->getContextList(), $settingContext);
+			}
+
+			$versionDao =& DAORegistry::getDAO('VersionDAO'); /* @var $versionDao VersionDAO */
+			$this->enabledProducts =& $versionDao->getCurrentProducts($settingContext);
+		}
+
+		if (is_null($category)) {
+			return $this->enabledProducts;
+		} elseif (isset($this->enabledProducts[$category])) {
+			return $this->enabledProducts[$category];
+		} else {
+			$returner = array();
+			return $returner;
+		}
+	}
+
+	/**
+	 * Get the list of plugin categories for this application.
+	 */
+	function getPluginCategories() {
+		// To be implemented by sub-classes
+		assert(false);
+	}
+
+	/**
+	 * Return the current version of the application.
+	 * @return Version
+	 */
+	function &getCurrentVersion() {
+		$currentVersion =& $this->getEnabledProducts('core');
+		assert(count($currentVersion)) == 1;
+		return $currentVersion[$this->getName()];
+	}
+
+	/**
 	 * Get the map of DAOName => full.class.Path for this application.
 	 * @return array
 	 */
 	function getDAOMap() {
 		return array(
-			'AccessKeyDAO' => 'security.AccessKeyDAO',
-			'AuthSourceDAO' => 'security.AuthSourceDAO',
-			'CaptchaDAO' => 'captcha.CaptchaDAO',
-			'ControlledVocabDAO' => 'controlledVocab.ControlledVocabDAO',
-			'ControlledVocabEntryDAO' => 'controlledVocab.ControlledVocabEntryDAO',
-			'CountryDAO' => 'i18n.CountryDAO',
-			'CurrencyDAO' => 'currency.CurrencyDAO',
-			'GroupDAO' => 'group.GroupDAO',
-			'GroupMembershipDAO' => 'group.GroupMembershipDAO',
-			'HelpTocDAO' => 'help.HelpTocDAO',
-			'HelpTopicDAO' => 'help.HelpTopicDAO',
-			'NotificationDAO' => 'notification.NotificationDAO',
-			'NotificationSettingsDAO' => 'notification.NotificationSettingsDAO',
-			'ScheduledTaskDAO' => 'scheduledTask.ScheduledTaskDAO',
-			'SessionDAO' => 'session.SessionDAO',
-			'SignoffDAO' => 'signoff.SignoffDAO',
-			'SiteDAO' => 'site.SiteDAO',
-			'SiteSettingsDAO' => 'site.SiteSettingsDAO',
-			'TimeZoneDAO' => 'i18n.TimeZoneDAO',
-			'TemporaryFileDAO' => 'file.TemporaryFileDAO',
-			'VersionDAO' => 'site.VersionDAO',
-			'XMLDAO' => 'db.XMLDAO'
+			'AccessKeyDAO' => 'lib.pkp.classes.security.AccessKeyDAO',
+			'AuthSourceDAO' => 'lib.pkp.classes.security.AuthSourceDAO',
+			'CaptchaDAO' => 'lib.pkp.classes.captcha.CaptchaDAO',
+			'CitationDAO' => 'lib.pkp.classes.citation.CitationDAO',
+			'ControlledVocabDAO' => 'lib.pkp.classes.controlledVocab.ControlledVocabDAO',
+			'ControlledVocabEntryDAO' => 'lib.pkp.classes.controlledVocab.ControlledVocabEntryDAO',
+			'CountryDAO' => 'lib.pkp.classes.i18n.CountryDAO',
+			'CurrencyDAO' => 'lib.pkp.classes.currency.CurrencyDAO',
+			'FilterDAO' => 'lib.pkp.classes.filter.FilterDAO',
+			'FilterGroupDAO' => 'lib.pkp.classes.filter.FilterGroupDAO',
+			'GroupDAO' => 'lib.pkp.classes.group.GroupDAO',
+			'GroupMembershipDAO' => 'lib.pkp.classes.group.GroupMembershipDAO',
+			'HelpTocDAO' => 'lib.pkp.classes.help.HelpTocDAO',
+			'HelpTopicDAO' => 'lib.pkp.classes.help.HelpTopicDAO',
+			'InterestDAO' => 'lib.pkp.classes.user.InterestDAO',
+			'InterestEntryDAO' => 'lib.pkp.classes.user.InterestEntryDAO',
+			'LanguageDAO' => 'lib.pkp.classes.language.LanguageDAO',
+			'MetadataDescriptionDAO' => 'lib.pkp.classes.metadata.MetadataDescriptionDAO',
+			'NotificationDAO' => 'lib.pkp.classes.notification.NotificationDAO',
+			'NotificationSettingsDAO' => 'lib.pkp.classes.notification.NotificationSettingsDAO',
+			'ProcessDAO' => 'lib.pkp.classes.process.ProcessDAO',
+			'ScheduledTaskDAO' => 'lib.pkp.classes.scheduledTask.ScheduledTaskDAO',
+			'SessionDAO' => 'lib.pkp.classes.session.SessionDAO',
+			'SignoffDAO' => 'lib.pkp.classes.signoff.SignoffDAO',
+			'SiteDAO' => 'lib.pkp.classes.site.SiteDAO',
+			'SiteSettingsDAO' => 'lib.pkp.classes.site.SiteSettingsDAO',
+			'TimeZoneDAO' => 'lib.pkp.classes.i18n.TimeZoneDAO',
+			'TemporaryFileDAO' => 'lib.pkp.classes.file.TemporaryFileDAO',
+			'VersionDAO' => 'lib.pkp.classes.site.VersionDAO',
+			'XMLDAO' => 'lib.pkp.classes.db.XMLDAO'
 		);
 	}
 
@@ -367,7 +444,7 @@ class PKPApplication {
 							$args .= $a;
 							break;
 						case 'string':
-							$a = htmlspecialchars(substr($a, 0, 64)).((strlen($a) > 64) ? '...' : '');
+							$a = htmlspecialchars($a);
 							$args .= "\"$a\"";
 							break;
 						case 'array':

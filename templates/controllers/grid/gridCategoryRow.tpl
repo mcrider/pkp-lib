@@ -10,8 +10,9 @@
 <td colspan="{$numColumns}">
 {if $categoryRow->getActions()}
 	{foreach name=actions from=$categoryRow->getActions() item=action}
-		{include file="controllers/grid/gridAction.tpl" action=$action id=$categoryId}
+		{include file="linkAction/linkAction.tpl" action=$action id=$categoryId}
 	{/foreach}
 {/if}
 {$categoryRow->getCategoryLabel()}
 </td>
+

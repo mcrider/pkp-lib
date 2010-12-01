@@ -16,7 +16,7 @@
 // $Id$
 
 
-import('db.DAO');
+import('lib.pkp.classes.db.DAO');
 
 class DAORegistry {
 
@@ -66,10 +66,8 @@ class DAORegistry {
 				fatalError('Unrecognized DAO ' . $name . '!');
 			}
 
-			import($className);
-
 			// Only instantiate each class of DAO a single time
-			$daos[$name] = new $name();
+			$daos[$name] =& instantiate($className, array('DAO', 'XMLDAO'));
 			if ($dbconn != null) {
 				// FIXME Needed by installer but shouldn't access member variable directly
 				$daos[$name]->_dataSource = $dbconn;

@@ -8,3 +8,4 @@
  *}
 
 <option value='{$itemId}'>{$itemName}{if $attributeNames} ({$attributeNames}){/if}</option>
+

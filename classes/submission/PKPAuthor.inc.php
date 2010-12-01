@@ -17,7 +17,6 @@
 
 
 class PKPAuthor extends DataObject {
-
 	/**
 	 * Constructor.
 	 */
@@ -28,10 +27,13 @@ class PKPAuthor extends DataObject {
 	/**
 	 * Get the author's complete name.
 	 * Includes first name, middle name (if applicable), and last name.
+	 * @param $lastFirst boolean False / default: Firstname Middle Lastname
+	 * 	If true: Lastname, Firstname Middlename
 	 * @return string
 	 */
-	function getFullName() {
-		return $this->getData('firstName') . ' ' . ($this->getData('middleName') != '' ? $this->getData('middleName') . ' ' : '') . $this->getData('lastName');
+	function getFullName($lastFirst = false) {
+		if ($lastFirst) return $this->getData('lastName') . ', ' . $this->getData('firstName') . ($this->getData('middleName') != '' ? ' ' . $this->getData('middleName') : '');
+		else return $this->getData('firstName') . ' ' . ($this->getData('middleName') != '' ? $this->getData('middleName') . ' ' : '') . $this->getData('lastName');
 	}
 
 	//
@@ -57,6 +59,38 @@ class PKPAuthor extends DataObject {
 	}
 
 	/**
+	 * Get ID of submission.
+	 * @return int
+	 */
+	function getSubmissionId() {
+		return $this->getData('submissionId');
+	}
+
+	/**
+	 * Set ID of submission.
+	 * @param $submissionId int
+	 */
+	function setSubmissionId($submissionId) {
+		return $this->setData('submissionId', $submissionId);
+	}
+
+	/**
+	 * Set the user group id
+	 * @param $userGroupId int
+	 */
+	function setUserGroupId($userGroupId) {
+		$this->setData('userGroupId', $userGroupId);
+	}
+
+	/**
+	 * Get the user group id
+	 * @return int
+	 */
+	function getUserGroupId() {
+		return $this->getData('userGroupId');
+	}
+
+	/**
 	 * Get first name.
 	 * @return string
 	 */
@@ -68,8 +102,7 @@ class PKPAuthor extends DataObject {
 	 * Set first name.
 	 * @param $firstName string
 	 */
-	function setFirstName($firstName)
-	{
+	function setFirstName($firstName) {
 		return $this->setData('firstName', $firstName);
 	}
 
@@ -139,18 +172,27 @@ class PKPAuthor extends DataObject {
 
 	/**
 	 * Get affiliation (position, institution, etc.).
+	 * @param $locale string
 	 * @return string
 	 */
-	function getAffiliation() {
-		return $this->getData('affiliation');
+	function getAffiliation($locale) {
+		return $this->getData('affiliation', $locale);
 	}
 
 	/**
 	 * Set affiliation.
 	 * @param $affiliation string
+	 * @param $locale string
 	 */
-	function setAffiliation($affiliation) {
-		return $this->setData('affiliation', $affiliation);
+	function setAffiliation($affiliation, $locale) {
+		return $this->setData('affiliation', $affiliation, $locale);
+	}
+
+	/**
+	 * Get the localized affiliation for this author
+	 */
+	function getLocalizedAffiliation() {
+		return $this->getLocalizedData('affiliation');
 	}
 
 	/**
@@ -217,8 +259,13 @@ class PKPAuthor extends DataObject {
 	/**
 	 * Get the localized biography for this author
 	 */
-	function getAuthorBiography() {
+	function getLocalizedBiography() {
 		return $this->getLocalizedData('biography');
+	}
+
+	function getAuthorBiography() {
+		if (Config::getVar('debug', 'deprecation_warnings')) trigger_error('Deprecated function.');
+		return $this->getLocalizedBiography();
 	}
 
 	/**

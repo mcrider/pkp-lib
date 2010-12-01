@@ -15,7 +15,6 @@
  *
  */
 
-// $Id$
 
 switch ($op) {
 	case 'index':
@@ -30,7 +29,7 @@ switch ($op) {
 	case 'confirmMailListSubscription':
 	case 'unsubscribeMailList':
 		define('HANDLER_CLASS', 'NotificationHandler');
-		import('pages.notification.NotificationHandler');
+		import('lib.pkp.pages.notification.NotificationHandler');
 		break;
 }
 

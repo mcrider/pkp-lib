@@ -16,3 +16,4 @@
 		{/foreach}
 	</tr>
 </tbody>
+

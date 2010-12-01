@@ -6,14 +6,14 @@
  * Copyright (c) 2000-2010 John Willinsky
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
  *
- * @class Listbuilder
+ * @class ListbuilderHandler
  * @ingroup controllers_listbuilder
  *
  * @brief Class defining basic operations for handling Listbuilder UI elements
  */
 
-import('controllers.grid.GridHandler');
-import('controllers.listbuilder.ListbuilderGridRow');
+import('lib.pkp.classes.controllers.grid.GridHandler');
+import('lib.pkp.classes.controllers.listbuilder.ListbuilderGridRow');
 
 define('LISTBUILDER_SOURCE_TYPE_TEXT', 0);
 define('LISTBUILDER_SOURCE_TYPE_SELECT', 1);
@@ -45,6 +45,9 @@ class ListbuilderHandler extends GridHandler {
 	/** @var array Array of optional attributes **/
 	var $_attributeNames;
 
+	/** @var array Array of optional data **/
+	var $_additionalData;
+
 	/** @var array Array of strings containing possible items that are stored in the source list */
 	var $_possibleItems;
 
@@ -55,9 +58,24 @@ class ListbuilderHandler extends GridHandler {
 		parent::GridHandler();
 	}
 
-	function getRemoteOperations() {
-		return array('fetch', 'addItem', 'deleteItems');
+
+	//
+	// Getters and Setters
+	//
+	/**
+	 * Get possible items for left-hand drop-down list
+	 */
+	function getPossibleItemList() {
+		return $this->_possibleItems;
 	}
+
+	/**
+	 * Set possible items for left-hand drop-down list
+	 */
+	function setPossibleItemList($possibleItems) {
+		$this->_possibleItems = $possibleItems;
+	}
+
 
 	/**
 	 * Get the listbuilder template
@@ -70,7 +88,7 @@ class ListbuilderHandler extends GridHandler {
 
 		return $this->_template;
 	}
-	
+
 	/**
 	 * Set the title for the source (left side of the listbuilder)
 	 * FIXME: AFAIK doxygen needs the $ to correctly parse variable names
@@ -171,6 +189,22 @@ class ListbuilderHandler extends GridHandler {
 	}
 
 	/**
+	 * Set additional data for the listbuilder
+	 * @param $additionalData array
+	 */
+	function setAdditionalData($additionalData) {
+		$this->_additionalData = $additionalData;
+	}
+
+	/**
+	 * Get additional data for the listbuilder
+	 * @return array
+	 */
+	function getAdditionalData() {
+		return $this->_additionalData;
+	}
+
+	/**
  	 * Build a list of <option>'s based on the input (can be array or one list item)
 	 * @param $itemName string
 	 * @param $attributeNames string
@@ -192,15 +226,21 @@ class ListbuilderHandler extends GridHandler {
 	/**
 	 * Display the Listbuilder
 	 */
-	function fetch(&$args, &$request) {
+	function fetch(&$args, &$request, $additionalVars = null) {
 		// FIXME: User validation
 
 		$templateMgr =& TemplateManager::getManager();
 		$this->setupTemplate();
 		$router =& $request->getRouter();
 
-		$templateMgr->assign('addUrl', $router->url($request, array(), null, 'addItem'));
-		$templateMgr->assign('deleteUrl', $router->url($request, array(), null, 'deleteItems'));
+		if(isset($additionalVars)) {
+			foreach ($additionalVars as $key => $value) {
+				$templateMgr->assign($key, $value);
+			}
+		} else {
+			$templateMgr->assign('addUrl', $router->url($request, array(), null, 'addItem'));
+			$templateMgr->assign('deleteUrl', $router->url($request, array(), null, 'deleteItems'));
+		}
 
 		// Translate modal submit/cancel buttons
 		$okButton = Locale::translate('common.ok');
@@ -213,13 +253,15 @@ class ListbuilderHandler extends GridHandler {
 		$templateMgr->assign('numColumns', count($columns));
 
 		// Render the rows
-		$rows = $this->_renderRowsInternally($request);
+		$nullVar = null; // Kludge
+		$rows = $this->_renderRowsInternally($request, $nullVar);
 		$templateMgr->assign_by_ref('rows', $rows);
 
 		$templateMgr->assign('listbuilder', $this);
 
-		echo $templateMgr->fetch($this->getTemplate());
-    }
+		$json = new JSON('true', $templateMgr->fetch($this->getTemplate()));
+		return $json->getString();
+	}
 
 	//
 	// Overridden methods from GridHandler
