@@ -137,3 +137,10 @@ function changeFormAction(formName, action) {
 	document.forms[formName].submit();
 }
 
+/**
+ * Encode a URL parameter
+ * @param s string
+ */
+function urlEncode(s) {
+      return encodeURIComponent( s ).replace( /\%20/g, '+' ).replace( /!/g, '%21' ).replace( /'/g, '%27' ).replace( /\(/g, '%28' ).replace( /\)/g, '%29' ).replace( /\*/g, '%2A' ).replace( /\~/g, '%7E' );
+}
