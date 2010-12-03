@@ -32,7 +32,7 @@
 		var tag_input = $("#"+id+"KeywordInput");
 
 		// Add the existing keywords
-		// 'For each' is not browser-safe. Use jQuery's .each method
+		// MC 'For each' is not browser-safe. Use jQuery's .each method
 		var currentTags = options.currentTags;
 		$.each(currentTags, function() {
 			create_choice(this);
@@ -104,7 +104,7 @@
 		function create_choice (value){
 			var el = "";
 			el  = "<li class=\"tagit-choice\">\n";
-			el += value + "\n";
+			el += escapeHTML(value.toString()) + "\n";
 			el += "<a class=\"close\">x</a>\n";
 			el += "<input type=\"hidden\" class=\"keywordValue\" style=\"display:none;\" value=\""+urlEncode(value)+"\" name=\""+id+"Keywords[]\">\n";
 			el += "</li>\n";

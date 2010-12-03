@@ -144,3 +144,11 @@ function changeFormAction(formName, action) {
 function urlEncode(s) {
       return encodeURIComponent( s ).replace( /\%20/g, '+' ).replace( /!/g, '%21' ).replace( /'/g, '%27' ).replace( /\(/g, '%28' ).replace( /\)/g, '%29' ).replace( /\*/g, '%2A' ).replace( /\~/g, '%7E' );
 }
+
+/**
+ * HTML encode a string
+ * @param s string
+ */
+function escapeHTML(s) {
+	return $('<div/>').text(s).html();
+}
