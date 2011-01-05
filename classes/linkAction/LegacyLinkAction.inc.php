@@ -67,7 +67,7 @@ class LegacyLinkAction {
 	 * @param $id string
 	 * @param $mode integer one of LINK_ACTION_MODE_*
 	 * @param $type string one of LINK_ACTION_TYPE_*
-	 * @param $url string
+	 * @param $url PKPUrl
 	 * @param $title string (optional)
 	 * @param $titleLocalized string (optional)
 	 * @param $image string (optional)

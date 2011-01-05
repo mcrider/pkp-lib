@@ -57,6 +57,7 @@ class PKPApplication {
 		import('lib.pkp.classes.core.Core');
 		import('lib.pkp.classes.core.String');
 		import('lib.pkp.classes.core.Registry');
+		import('lib.pkp.classes.core.PKPUrl');
 
 		import('lib.pkp.classes.config.Config');
 

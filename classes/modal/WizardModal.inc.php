@@ -17,13 +17,13 @@ import('lib.pkp.classes.modal.AjaxModal');
 class WizardModal extends AjaxModal {
 	/**
 	 * Constructor
-	 * @param $url string
+	 * @param $url PKPUrl
 	 * @param $title string (optional)
 	 * @param $titleIcon string (optional)
 	 * @param $canClose boolean (optional)
 	 */
 	function WizardModal($url, $title = null, $titleIcon = null, $canClose = true) {
-		parent::AjaxModal($url, $title, $titleIcon, $canClose);
+		parent::AjaxModal($url->getUrlString(), $title, $titleIcon, $canClose);
 	}
 
 
