@@ -75,14 +75,14 @@ echo >&2
 
 # A list with all files to be compiled and minified. Expects
 # a complete list of script files in minifiedScripts.tpl.
-COMPILE_FILES=$(sed -nr '/<script type="text\/javascript"/ { s%^.*src="\{\$baseUrl\}/([^"]+)".*$%\1%p }' templates/common/minifiedScripts.tpl)
+COMPILE_FILES=$(sed -e 's/\<script type=\"text\/javascript\" src=\"{\$baseUrl}\///' -e 's/">.*$//' -e 's/{\*.*$//' -e 's/\*.*$//'  templates/common/minifiedScripts.tpl)
 
 # FIXME: For now we only check classes as the other
 # files contain too many errors to be fixed right now.
 LINT_FILES=`echo "$COMPILE_FILES" | egrep -v '^lib/pkp/js/(lib|functions)'`
 
 # Create a working directory in the cache
-WORKDIR=`mktemp -d` || { echo "The working directory could not be created!"; exit 1; }
+WORKDIR=`mktemp -dt tempDir` || { echo "The working directory could not be created!"; exit 1; }
 
 # Show a list of the files we are going to lint.
 echo "Lint..." >&2
