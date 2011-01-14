@@ -27,7 +27,7 @@
 
 ### Configuration ###
 
-TOOL_PATH=~/bin
+TOOL_PATH=/bin
 
 JS_OUTPUT='lib/pkp/js/pkp.min.js'
 
@@ -75,14 +75,14 @@ echo >&2
 
 # A list with all files to be compiled and minified. Expects
 # a complete list of script files in minifiedScripts.tpl.
-COMPILE_FILES=$(sed -nr '/<script type="text\/javascript"/ { s%^.*src="\{\$baseUrl\}/([^"]+)".*$%\1%p }' templates/common/minifiedScripts.tpl)
+COMPILE_FILES=$(sed -e 's/\<script type=\"text\/javascript\" src=\"{\$baseUrl}\///' -e 's/">.*$//' -e 's/{\*.*$//' -e 's/\*.*$//'  templates/common/minifiedScripts.tpl)
 
 # FIXME: For now we only check classes as the other
 # files contain too many errors to be fixed right now.
 LINT_FILES=`echo "$COMPILE_FILES" | egrep -v '^lib/pkp/js/(lib|functions)'`
 
 # Create a working directory in the cache
-WORKDIR=`mktemp -d` || { echo "The working directory could not be created!"; exit 1; }
+WORKDIR=`mktemp -dt tempDir` || { echo "The working directory could not be created!"; exit 1; }
 
 # Show a list of the files we are going to lint.
 echo "Lint..." >&2
@@ -147,14 +147,14 @@ else
 	echo >&2
 	echo "Compile (Minify)..." >&2
 	echo "$COMPILE_FILES" | sed 's/^/.../' >&2
-	
+
 	# Transform file list into Closure input parameter list.
 	COMPILE_FILES=`echo "$COMPILE_FILES" | tr '\n' ' ' | sed -r 's/ $//;s/(^| )/ --js /g'`
-	
+
 	# Run Closure - second pass to minify
-	java -jar "$TOOL_PATH/compiler.jar" --externs lib/pkp/tools/closure-externs.js --jscomp_off checkTypes --warning_level VERBOSE $COMPILE_FILES --js_output_file "$JS_OUTPUT" 2>&1 
+	java -jar "$TOOL_PATH/compiler.jar" --externs lib/pkp/tools/closure-externs.js --jscomp_off checkTypes --warning_level VERBOSE $COMPILE_FILES --js_output_file "$JS_OUTPUT" 2>&1
 	echo >&2
-	
+
 	echo "Please don't forget to set enable_minified=On in your config.inc.php." >&2
 	echo >&2
 	echo "Done!" >&2
