@@ -22,7 +22,8 @@
 			'$.pkp.controllers.grid.GridHandler',
 			{ldelim}
 				gridId: '{$grid->getId()|escape:javascript}',
-				fetchRowUrl: '{$fetchRowUrl|escape:javascript}',
+				fetchRowUrl: {ldelim}url op='fetchRow' params=$fetchParams{rdelim},
+				fetchGridUrl: {ldelim}url op='fetchGrid' params=$fetchParams{rdelim},
 				bodySelector: '#{$gridActOnId|escape:javascript}'
 			{rdelim});
 	{rdelim});
