@@ -117,7 +117,7 @@ class Submission extends DataObject {
 			if (!empty($str)) {
 				$str .= $separator;
 			}
-			$str .= $lastOnly ? $a->getLastName() : $a->getFullName();
+			$str .= $lastOnly ? $a->getLocalizedLastName() : $a->getLocalizedFullName();
 		}
 		return $str;
 	}
@@ -130,7 +130,7 @@ class Submission extends DataObject {
 		import('lib.pkp.classes.mail.Mail');
 		$returner = array();
 		foreach ($this->authors as $a) {
-			$returner[] = Mail::encodeDisplayName($a->getFullName()) . ' <' . $a->getEmail() . '>';
+			$returner[] = Mail::encodeDisplayName($a->getLocalizedFullName()) . ' <' . $a->getEmail() . '>';
 		}
 		return $returner;
 	}
@@ -143,7 +143,7 @@ class Submission extends DataObject {
 	function getFirstAuthor($lastOnly = false) {
 		$author = $this->authors[0];
 		if (!$author) return null;
-		return $lastOnly ? $author->getLastName() : $author->getFullName();
+		return $lastOnly ? $author->getLocalizedLastName() : $author->getLocalizedFullName();
 	}
 
 

@@ -29,11 +29,23 @@ class PKPAuthor extends DataObject {
 	 * Includes first name, middle name (if applicable), and last name.
 	 * @param $lastFirst boolean False / default: Firstname Middle Lastname
 	 * 	If true: Lastname, Firstname Middlename
+	 * @param $locale string
 	 * @return string
 	 */
-	function getFullName($lastFirst = false) {
-		if ($lastFirst) return $this->getData('lastName') . ', ' . $this->getData('firstName') . ($this->getData('middleName') != '' ? ' ' . $this->getData('middleName') : '');
-		else return $this->getData('firstName') . ' ' . ($this->getData('middleName') != '' ? $this->getData('middleName') . ' ' : '') . $this->getData('lastName');
+	function getFullName($lastFirst = false, $locale) {
+		if ($lastFirst) return $this->getData('lastName', $locale) . ', ' . $this->getData('firstName', $locale) . ($this->getData('middleName', $locale) != '' ? ' ' . $this->getData('middleName', $locale) : '');
+		else return $this->getData('firstName', $locale) . ' ' . ($this->getData('middleName', $locale) != '' ? $this->getData('middleName', $locale) . ' ' : '') . $this->getData('lastName', $locale);
+	}
+
+	/**
+	 * Get the localized author's complete name.
+	 * @param $lastFirst boolean False / default: Firstname Middle Lastname
+	 * 	If true: Lastname, Firstname Middlename
+	 * @return string
+	 */
+	function getLocalizedFullName($lastFirst = false) {
+		if ($lastFirst) return $this->getLocalizedData('lastName') . ', ' . $this->getLocalizedData('firstName') . ($this->getLocalizedData('middleName') != '' ? ' ' . $this->getLocalizedData('middleName') : '');
+		else return $this->getLocalizedData('firstName') . ' ' . ($this->getLocalizedData('middleName') != '' ? $this->getLocalizedData('middleName') . ' ' : '') . $this->getLocalizedData('lastName');
 	}
 
 	//
@@ -92,34 +104,52 @@ class PKPAuthor extends DataObject {
 
 	/**
 	 * Get first name.
+	 * @param $locale string
 	 * @return string
 	 */
-	function getFirstName() {
-		return $this->getData('firstName');
+	function getFirstName($locale) {
+		return $this->getData('firstName', $locale);
 	}
 
 	/**
 	 * Set first name.
 	 * @param $firstName string
+	 * @param $locale string
 	 */
-	function setFirstName($firstName) {
-		return $this->setData('firstName', $firstName);
+	function setFirstName($firstName, $locale) {
+		return $this->setData('firstName', $firstName, $locale);
+	}
+
+	/**
+	 * Get the localized firstName for this author
+	 */
+	function getLocalizedFirstName() {
+		return $this->getLocalizedData('firstName');
 	}
 
 	/**
 	 * Get middle name.
+	 * @param $locale string
 	 * @return string
 	 */
-	function getMiddleName() {
-		return $this->getData('middleName');
+	function getMiddleName($locale) {
+		return $this->getData('middleName', $locale);
 	}
 
 	/**
 	 * Set middle name.
 	 * @param $middleName string
+	 * @param $locale string
 	 */
-	function setMiddleName($middleName) {
-		return $this->setData('middleName', $middleName);
+	function setMiddleName($middleName, $locale) {
+		return $this->setData('middleName', $middleName, $locale);
+	}
+
+	/**
+	 * Get the localized middleName for this author
+	 */
+	function getLocalizedMiddleName() {
+		return $this->getLocalizedData('middleName');
 	}
 
 	/**
@@ -140,18 +170,27 @@ class PKPAuthor extends DataObject {
 
 	/**
 	 * Get last name.
+	 * @param $locale string
 	 * @return string
 	 */
-	function getLastName() {
-		return $this->getData('lastName');
+	function getLastName($locale) {
+		return $this->getData('lastName', $locale);
 	}
 
 	/**
 	 * Set last name.
 	 * @param $lastName string
+	 * @param $locale string
 	 */
-	function setLastName($lastName) {
-		return $this->setData('lastName', $lastName);
+	function setLastName($lastName, $locale) {
+		return $this->setData('lastName', $lastName, $locale);
+	}
+
+	/**
+	 * Get the localized lastName for this author
+	 */
+	function getLocalizedLastName() {
+		return $this->getLocalizedData('lastName');
 	}
 
 	/**
@@ -164,7 +203,7 @@ class PKPAuthor extends DataObject {
 
 	/**
 	 * Set user salutation.
-	 * @param $salutation string
+	 * @param $locale string
 	 */
 	function setSalutation($salutation) {
 		return $this->setData('salutation', $salutation);

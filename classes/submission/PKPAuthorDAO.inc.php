@@ -90,9 +90,6 @@ class PKPAuthorDAO extends DAO {
 		$author = $this->newDataObject();
 		$author->setId($row['author_id']);
 		$author->setSubmissionId($row['submission_id']);
-		$author->setFirstName($row['first_name']);
-		$author->setMiddleName($row['middle_name']);
-		$author->setLastName($row['last_name']);
 		$author->setCountry($row['country']);
 		$author->setEmail($row['email']);
 		$author->setUrl($row['url']);
@@ -116,9 +113,6 @@ class PKPAuthorDAO extends DAO {
 		$author = $this->newDataObject();
 		$author->setId($row['author_id']);
 		$author->setSubmissionId($row['submission_id']);
-		$author->setFirstName($row['first_name']);
-		$author->setMiddleName($row['middle_name']);
-		$author->setLastName($row['last_name']);
 		$author->setCountry($row['country']);
 		$author->setEmail($row['email']);
 		$author->setUrl($row['url']);
@@ -126,6 +120,12 @@ class PKPAuthorDAO extends DAO {
 		$author->setPrimaryContact($row['primary_contact']);
 		$author->setSequence($row['seq']);
 
+		$author->setFirstName($row['first_name_l'], $row['locale']);
+		$author->setFirstName($row['first_name_pl'], $row['primary_locale']);
+		$author->setMiddleName($row['middle_name_l'], $row['locale']);
+		$author->setMiddleName($row['middle_name_pl'], $row['primary_locale']);
+		$author->setLastName($row['last_name_l'], $row['locale']);
+		$author->setLastName($row['last_name_pl'], $row['primary_locale']);
 		$author->setAffiliation($row['affiliation_l'], $row['locale']);
 		$author->setAffiliation($row['affiliation_pl'], $row['primary_locale']);
 
@@ -146,7 +146,7 @@ class PKPAuthorDAO extends DAO {
 	 * @return array
 	 */
 	function getLocaleFieldNames() {
-		return array('biography', 'competingInterests', 'affiliation');
+		return array('biography', 'competingInterests', 'affiliation', 'firstName', 'lastName', 'middleName', 'initials', 'salutation');
 	}
 
 	/**
