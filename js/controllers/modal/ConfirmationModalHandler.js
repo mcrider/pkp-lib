@@ -61,6 +61,13 @@
 	/** @inheritDoc */
 	$.pkp.controllers.modal.ConfirmationModalHandler.prototype.mergeOptions =
 			function(options) {
+		// If the dialog has been hidden, prevent it from opening automatically
+		//  when it is initialized.  We will later trigger the modal to open which
+		//  will fire the modalConfirm event
+		if(options.isHidden) {
+			options.autoOpen = false;
+		}
+
 		// Let the parent class prepare the options first.
 		var internalOptions = this.parent('mergeOptions', options);
 

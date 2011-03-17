@@ -114,6 +114,7 @@
 	<message key="common.fileSize">File size</message>
 	<message key="common.fileType">File type</message>
 	<message key="common.height">Height</message>
+	<message key="common.hideMessage">Prevent this dialog from appearing in the future</message>
 	<message key="common.homePageHeaderLogo.altText">Homepage Header Logo</message>
 	<message key="common.hour">Hour</message>
 	<message key="common.id">ID</message>

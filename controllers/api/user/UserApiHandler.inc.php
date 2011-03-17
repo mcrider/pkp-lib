@@ -39,7 +39,7 @@ class UserApiHandler extends PKPHandler {
 	function authorize(&$request, $args, $roleAssignments) {
 		import('lib.pkp.classes.security.authorization.PKPSiteAccessPolicy');
 		$this->addPolicy(new PKPSiteAccessPolicy($request,
-				array('setUserSetting'), SITE_ACCESS_ALL_ROLES));
+				array('updateUserConfirmMessageVisibility'), SITE_ACCESS_ALL_ROLES));
 		return parent::authorize($request, $args, $roleAssignments);
 	}
 
@@ -58,7 +58,7 @@ class UserApiHandler extends PKPHandler {
 	 * with side effects in the database like all other handler operations do. A
 	 * better name may be updateUserMessageState() or something like that.
 	 */
-	function setUserSetting($args, &$request) {
+	function updateUserConfirmMessageVisibility($args, &$request) {
 		// Exit with a fatal error if request parameters are missing.
 		if (!(isset($args['setting-name'])) && isset($args['setting-value'])) {
 			fatalError('Required request parameter "setting-name" or "setting-value" missing!');
@@ -69,30 +69,24 @@ class UserApiHandler extends PKPHandler {
 		assert(is_a($user, 'User'));
 
 		// Validate the setting.
-		// FIXME: We don't have to retrieve the setting type (which is always bool
-		// for user messages) but only whether the setting name is valid and the
-		// value is boolean.
 		$settingName = $args['setting-name'];
 		$settingValue = $args['setting-value'];
-		$settingType = $this->_settingType($settingName);
-		switch($settingType) {
-			case 'bool':
-				if (!($settingValue === 'false' || $settingValue === 'true')) {
-					// Exit with a fatal error when the setting value is invalid.
-					fatalError('Invalid setting value! Must be "true" or "false".');
-				}
-				$settingValue = ($settingValue === 'true' ? true : false);
-				break;
-
-			default:
-				// Exit with a fatal error when an unknown setting is found.
-				fatalError('Unknown setting!');
-				return $json->getString();
+		$validSetting = $this->_validateSettingName($settingName);
+		if($validSetting) {
+			if (!($settingValue === 'false' || $settingValue === 'true')) {
+				// Exit with a fatal error when the setting value is invalid.
+				fatalError('Invalid setting value! Must be "true" or "false".');
+			}
+			$settingValue = ($settingValue === 'true' ? true : false);
+		} else {
+			// Exit with a fatal error when an unknown setting is found.
+			fatalError('Unknown setting!');
+			return $json->getString();
 		}
 
 		// Persist the validated setting.
 		$userSettingsDAO =& DAORegistry::getDAO('UserSettingsDAO');
-		$userSettingsDAO->updateSetting($user->getId(), $settingName, $settingValue, $settingType);
+		$userSettingsDAO->updateSetting($user->getId(), $settingName, $settingValue, 'bool');
 
 		// Return a success message.
 		$json = new JSON(true);
@@ -104,22 +98,20 @@ class UserApiHandler extends PKPHandler {
 	 * Checks the requested setting against a whitelist of
 	 * settings that can be changed remotely.
 	 * @param $settingName string
-	 * @return string a string representation of the setting type
-	 *  for further validation if the setting is whitelisted, otherwise
-	 *  null.
+	 * @return boolean Whether this is a valid setting type.
 	 */
-	function _settingType($settingName) {
+	function _validateSettingName($settingName) {
 		// Settings whitelist.
 		static $allowedSettings = array(
-			'citation-editor-hide-intro' => 'bool',
-			'citation-editor-hide-raw-editing-warning' => 'bool'
+			'citation-editor-hide-intro',
+			'citation-editor-hide-raw-editing-warning',
+			'prepared-emails-hide-reset-all'
 		);
 
-		// Identify the setting type.
-		if (isset($allowedSettings[$settingName])) {
-			return $allowedSettings[$settingName];
+		if (in_array($settingName, $allowedSettings)) {
+			return true;
 		} else {
-			return null;
+			return false;
 		}
 	}
 }

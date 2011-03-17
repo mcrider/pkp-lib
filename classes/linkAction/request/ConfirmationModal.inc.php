@@ -37,6 +37,16 @@ class ConfirmationModal extends Modal {
 	var $_dialogText;
 
 	/**
+	 * @var string URL to call to hide this dialog
+	 */
+	var $_hideAction;
+
+	/**
+	 * @var boolean Whether the user has suppressed the dialog
+	 */
+	var $_isHidden;
+
+	/**
 	 * Constructor
 	 * @param $dialogText string The localized text to appear
 	 *  in the dialog modal.
@@ -51,14 +61,17 @@ class ConfirmationModal extends Modal {
 	 *  appear on the cancel button.
 	 * @param $canClose boolean (optional) Whether the modal will
 	 *  have a close button.
+	 * @param $hideAction string (optional) URL to call to hide this dialog
 	 */
-	function ConfirmationModal($dialogText, $title = null, $remoteAction = null, $titleIcon = null, $okButton = null, $cancelButton = null, $canClose = true) {
+	function ConfirmationModal($dialogText, $title = null, $remoteAction = null, $titleIcon = null, $okButton = null, $cancelButton = null, $canClose = true, $hideAction = null, $isHidden = false) {
 		parent::Modal($title, $titleIcon, $canClose);
 
 		$this->_remoteAction = $remoteAction;
 		$this->_okButton = (is_null($okButton) ? __('common.ok') : $okButton);
 		$this->_cancelButton = (is_null($cancelButton) ? __('common.cancel') : $cancelButton);
 		$this->_dialogText = $dialogText;
+		$this->_hideAction = $hideAction;
+		$this->_isHidden = $isHidden;
 	}
 
 
@@ -100,6 +113,23 @@ class ConfirmationModal extends Modal {
 		return $this->_dialogText;
 	}
 
+	/**
+	 * The setting name that determines if this dialog
+	 * is hideable
+	 * @return string
+	 */
+	function getHideAction() {
+		return $this->_hideAction;
+	}
+
+	/**
+	 * Get whether the dialog has been hidden by the user
+	 * @return boolean
+	 */
+	function getIsHidden() {
+	    return $this->_isHidden;
+	}
+
 
 	//
 	// Overridden methods from LinkActionRequest
@@ -108,12 +138,24 @@ class ConfirmationModal extends Modal {
 	 * @see LinkActionRequest::getLocalizedOptions()
 	 */
 	function getLocalizedOptions() {
-		return array_merge(parent::getLocalizedOptions(), array(
-				'modalHandler' => '$.pkp.controllers.modal.RemoteActionConfirmationModalHandler',
-				'remoteAction' => $this->getRemoteAction(),
-				'okButton' => $this->getOkButton(),
-				'cancelButton' => $this->getCancelButton(),
-				'dialogText' => $this->getDialogText()));
+		$localizedOptions = array(
+			'modalHandler' => '$.pkp.controllers.modal.RemoteActionConfirmationModalHandler',
+			'remoteAction' => $this->getRemoteAction(),
+			'okButton' => $this->getOkButton(),
+			'cancelButton' => $this->getCancelButton(),
+			'dialogText' => $this->getDialogText()
+		);
+
+		// If the dialog is hideable, expose the hide action
+		//  URL and the translated message to the client side
+		if ($this->getHideAction()) {
+			$localizedOptions['hideAction'] = $this->getHideAction();
+			$localizedOptions['hideMessage'] = __('common.hideMessage');
+		// FIXME: For testing, switched 1 and 0
+			$localizedOptions['isHidden'] = ($this->getIsHidden() ? '0' : '1');
+		}
+
+		return array_merge(parent::getLocalizedOptions(), $localizedOptions);
 	}
 }
 

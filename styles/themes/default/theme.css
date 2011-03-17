@@ -143,7 +143,7 @@ a.task:hover {
 	background: none;
 	text-transform: uppercase;
 	font: 100% "Courier New", Courier, mono;
-	
+
 }
 
 .ui-accordion-content {
@@ -210,7 +210,7 @@ a.task:hover {
 /* Dialog */
 
 .ui-dialog {
-	
+
 }
 
 .ui-dialog-titlebar {
@@ -220,6 +220,10 @@ a.task:hover {
 .ui-dialog-custom-titlebar {
 	padding:0.5em 1em 0.3em;
 	position:relative;
+}
+
+.ui-dialog-hide-message {
+	margin-right: 7px;
 }
 
 /*
