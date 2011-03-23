@@ -7,24 +7,25 @@
  * Keyword input control
  *}
 
-{literal}
 <script type="text/javascript">
 	<!--
-	$(document).ready(function(){
-		$("#{/literal}{$FBV_id}{literal}").tagit({
-			{/literal}{if $FBV_availableKeywords}{literal}
+	$(document).ready(function(){ldelim}
+		$("#{$FBV_id}").tagit({ldelim}
+			{if $FBV_locale}
+				locale: '{$FBV_locale}'
+			{/if}
+			{if $FBV_availableKeywords}
 				// This is the list of keywords in the system used to populate the autocomplete
-				availableTags: [{/literal}{foreach name=existingInterests from=$FBV_availableKeywords item=interest}"{$interest|escape|escape:'javascript'}"{if !$smarty.foreach.existingInterests.last}, {/if}{/foreach}{literal}],
-			{/literal}{/if}
-			{if $FBV_currentKeywords}{literal}
+				availableTags: [{foreach name=existingInterests from=$FBV_availableKeywords item=interest}"{$interest|escape|escape:'javascript'}"{if !$smarty.foreach.existingInterests.last}, {/if}{/foreach}],
+			{/if}
+			{if $FBV_currentKeywords}
 				// This is the list of the user's keywords that have already been saved
-				currentTags: [{/literal}{foreach name=currentInterests from=$FBV_currentKeywords item=interest}"{$interest|escape|escape:'javascript'}"{if !$smarty.foreach.currentInterests.last}, {/if}{/foreach}{literal}]{/literal}
-			{/if}{literal}
-		});
-	});
+				currentTags: [{foreach name=currentInterests from=$FBV_currentKeywords item=interest}"{$interest|escape|escape:'javascript'}"{if !$smarty.foreach.currentInterests.last}, {/if}{/foreach}]
+			{/if}
+		{rdelim});
+	{rdelim});
 	// -->
 </script>
-{/literal}
 
 <div class="keywordInputContainer">
 	<ul id="{$FBV_id}"><li></li></ul>

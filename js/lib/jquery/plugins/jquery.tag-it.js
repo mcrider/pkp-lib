@@ -117,7 +117,8 @@
 			el  = "<li class=\"tagit-choice\">\n";
 			el += escapeHTML(value.toString()) + "\n";
 			el += "<a class=\"close\">x</a>\n";
-			el += "<input type=\"hidden\" class=\"keywordValue\" style=\"display:none;\" value=\""+urlEncode(value)+"\" name=\""+id+"Keywords[]\">\n";
+			var locale = options.locale ? options.locale : '';
+			el += "<input type=\"hidden\" class=\"keywordValue\" style=\"display:none;\" value=\""+urlEncode(value)+"\" name=\""+id+"Keywords["+locale+"]\">\n";
 			el += "</li>\n";
 			var li_search_tags = tag_input.parent();
 			$(el).insertBefore (li_search_tags);

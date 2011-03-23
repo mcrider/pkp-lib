@@ -1084,6 +1084,7 @@ class Form {
 				case 'label': $smarty->assign('FBV_label', $params['label']); break;
 				case 'available': $smarty->assign('FBV_availableKeywords', $params['available']); break;
 				case 'current': $smarty->assign('FBV_currentKeywords', $params['current']); break;
+				case 'formLocale': $smarty->assign('FBV_locale', $params['formLocale']); break;
 				default: $keywordParams .= htmlspecialchars($key, ENT_QUOTES, LOCALE_ENCODING) . '="' . htmlspecialchars($value, ENT_QUOTES, LOCALE_ENCODING) . '" ';
 			}
 		}
