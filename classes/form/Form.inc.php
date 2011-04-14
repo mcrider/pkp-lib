@@ -687,6 +687,9 @@ class Form {
 			case 'select':
 				$content = $this->smartyFBVSelect($params, $smarty);
 				break;
+			case 'autocomplete':
+                    $content = $this->smartyFBVAutocompleteInput($params, $smarty);
+                    break;
 			case 'custom':
 				break;
 			default: $content = null;
@@ -822,13 +825,15 @@ class Form {
 			$smarty->trigger_error('FBV: url for autocompletion not specified.');
 		}
 
+		$params = $this->addClientSideValidation($params);
+		$smarty->assign('FBV_validation', $params['validation']);
+
 		// This id will be used for the hidden input that should be read by the Form.
-		$smarty->assign('FBV_id', $params['id']);
+		$smarty->assign('FBV_id_hidden', $params['id']);
 		$smarty->assign('FBV_autocompleteUrl', $params['autocompleteUrl']);
 
 		// Override the id parameter to differentiate it from the <div>
-		// FIXME: add this line back in when select implemented properly.
-//		$params['id'] = $params['id'] . '-input';
+		$params['id'] = $params['id'] . '_input';
 		$smarty->assign('FBV_textInput', $this->smartyFBVTextInput($params, $smarty));
 
 		return $smarty->fetch('form/autocompleteInput.tpl');

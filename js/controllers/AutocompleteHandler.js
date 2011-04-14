@@ -28,8 +28,8 @@
 		this.textInput_ = $autocompleteField.children(':text');
 
 		// Get the text input inside of this Div.
-		this.hiddenInput = $autocompleteField.children(':hidden');
-		
+		this.hiddenInput_ = $autocompleteField.children(':hidden');
+
 		// Create autocomplete settings.
 		var autocompleteOptions = $.extend(
 			{ },
@@ -37,11 +37,17 @@
 			this.self('DEFAULT_PROPERTIES_'),
 			// Non-default settings.
 			{
-				source: options.source
+				source: function(request, response){
+					$.post(options.source, {term:request.term}, function(data){
+						var jsonData = $.parseJSON(data.content);
+						response(jsonData);
+					}, "json");
+				}
 			});
 
 		// Create the autocomplete field with the jqueryUI plug-in.
 		this.textInput_.autocomplete(autocompleteOptions);
+		this.bind('autocompleteselect', this.itemSelected);
 	};
 	$.pkp.classes.Helper.inherits(
 			$.pkp.controllers.AutocompleteHandler, $.pkp.classes.Handler);
@@ -54,14 +60,14 @@
 	 * The text input inside the autocomplete div that holds the label.
 	 * @type {HTML element}
 	 */
-	$.pkp.controllers.AutocompleteHandler.textInput_ = null;	
+	$.pkp.controllers.AutocompleteHandler.textInput_ = null;
 
 	/**
 	 * The hidden input inside the autocomplete div that holds the value.
 	 * @type {HTML element}
 	 */
 	$.pkp.controllers.AutocompleteHandler.hiddenInput_ = null;
-	
+
 	/**
 	 * Default options
 	 * @private
@@ -70,18 +76,30 @@
 	 */
 	$.pkp.controllers.AutocompleteHandler.DEFAULT_PROPERTIES_ = {
 		// General settings
-		minLength: 2		
-	};	
-	
+		minLength: 2
+	};
+
 	//
 	// Public Methods
-	// 
-	// FIXME: I could not get this to work. this points to the HTML intput, 
-	// but I need to grab the  
-	$.pkp.controllers.AutocompleteHandler.prototype.itemSelected = 
-		function(event, ui) {	
-			return false;
+	//
+	/**
+	 * Handle event triggered by selecting an autocomplete item
+	 *
+	 * @param {HTMLElement} autocompleteElement The element that triggered
+	 *  the event.
+	 * @param {Event} event The triggered event.
+	 * @param {Object} ui The tabs ui data.
+	 */
+	$.pkp.controllers.AutocompleteHandler.prototype.itemSelected =
+		function(autocompleteElement, event, ui) {
+
+		var $hiddenInput = this.hiddenInput_;
+		var $textInput = this.textInput_;
+
+		$hiddenInput.val(ui.item.value);
+		$textInput.val(ui.item.label);
+		return false;
 	};
-	
+
 /** @param {jQuery} $ jQuery closure. */
 })(jQuery);

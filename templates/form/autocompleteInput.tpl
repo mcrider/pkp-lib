@@ -4,19 +4,18 @@
  * Copyright (c) 2000-2011 John Willinsky
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
  *
- * an autocomplete input 
+ * an autocomplete input
  *}
-<script type="text/javascript"> 
+<script type="text/javascript">
 	$(function() {ldelim}
-		$('#{$FBV_id}-div').pkpHandler('$.pkp.controllers.AutocompleteHandler',
+		$('#{$FBV_id}_container').pkpHandler('$.pkp.controllers.AutocompleteHandler',
 			{ldelim}
 				source: "{$FBV_autocompleteUrl|escape:javascript}"
-			{rdelim});		
+			{rdelim});
 	{rdelim});
 </script>
 
-<div id="{$FBV_id}-div">
+<div id="{$FBV_id}_container">
 	{$FBV_textInput}
-	{** remove the -value when select implemented properly **}
-	<input type="hidden" id="{$FBV_id}-value" />
+	<input type="hidden" name="{$FBV_id_hidden}" id="{$FBV_id_hidden}" {if $FBV_validation}class="{$FBV_validation}"{/if} />
 </div>
