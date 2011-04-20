@@ -528,10 +528,9 @@ class GridHandler extends PKPHandler {
 		$renderedForm = '';
 		switch(true) {
 			case is_a($form, 'Form'):
-				// FIXME: Implement the possibility to use forms for the filter part of the grid
-				assert(false);
+				$form->initData(array(), $request);
+				$renderedForm = $form->fetch($request);
 				break;
-
 			case is_string($form):
 				$templateMgr =& TemplateManager::getManager();
 
