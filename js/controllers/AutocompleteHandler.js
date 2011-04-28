@@ -39,8 +39,7 @@
 			{
 				source: function(request, response){
 					$.post(options.source, {term:request.term}, function(data){
-						var jsonData = $.parseJSON(data.content);
-						response(jsonData);
+						response(data.content);
 					}, "json");
 				}
 			});

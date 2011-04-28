@@ -203,7 +203,7 @@ class ListbuilderHandler extends GridHandler {
 	 * @param $request PKPRequest
 	 */
 	function fetchOptions($args, &$request) {
-		$options = $this->getOptions();
+		$options = $this->getOptions($request);
 		$json = new JSONMessage(true, $options);
 		return $json->getString();
 	}

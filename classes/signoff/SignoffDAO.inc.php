@@ -47,12 +47,12 @@ class SignoffDAO extends DAO {
 	 * @param $fileRevision int
 	 * @return Signoff
 	 */
-	function build($symbolic, $assocType, $assocId, $userId = null, $stageId = null,
+	function build($symbolic, $assocType, $assocId, $userId = null,
 			$userGroupId = null, $fileId = null, $fileRevision = null) {
 
 		// If one exists, fetch and return.
 		$signoff = $this->getBySymbolic(
-			$symbolic, $assocType, $assocId, $userId, $stageId,
+			$symbolic, $assocType, $assocId, $userId,
 			$userGroupId, $fileId, $fileRevision
 		);
 		if ($signoff) return $signoff;
@@ -64,7 +64,6 @@ class SignoffDAO extends DAO {
 		$signoff->setAssocType($assocType);
 		$signoff->setAssocId($assocId);
 		$signoff->setUserId($userId);
-		$signoff->setStageId($stageId);
 		$signoff->setUserGroupId($userGroupId);
 		$signoff->setFileId($fileId);
 		$signoff->setFileRevision($fileRevision);
@@ -81,18 +80,13 @@ class SignoffDAO extends DAO {
 	 * @param int $userGroupId
 	 * @return boolean
 	 */
-	function signoffExists($symbolic, $assocType, $assocId, $userId = null, $stageId = null, $userGroupId = null) {
+	function signoffExists($symbolic, $assocType, $assocId, $userId = null, $userGroupId = null) {
 		$sql = 'SELECT COUNT(*) FROM signoffs WHERE symbolic = ? AND assoc_type = ? AND assoc_id = ?';
 		$params = array($symbolic, (int) $assocType, (int) $assocId);
 
 		if ($userId) {
 			$sql .= ' AND user_id = ?';
 			$params[] = (int) $userId;
-		}
-
-		if ($stageId) {
-			$sql .= ' AND stage_id = ?';
-			$params[] = (int) $stageId;
 		}
 
 		if ($userGroupId) {
@@ -137,7 +131,6 @@ class SignoffDAO extends DAO {
 		$signoff->setDateUnderway($this->datetimeFromDB($row['date_underway']));
 		$signoff->setDateCompleted($this->datetimeFromDB($row['date_completed']));
 		$signoff->setDateAcknowledged($this->datetimeFromDB($row['date_acknowledged']));
-		$signoff->setStageId($row['stage_id']);
 		$signoff->setUserGroupId($row['user_group_id']);
 
 		return $signoff;
@@ -152,9 +145,9 @@ class SignoffDAO extends DAO {
 		$this->update(
 			sprintf(
 				'INSERT INTO signoffs
-				(symbolic, assoc_type, assoc_id, user_id, file_id, file_revision, date_notified, date_underway, date_completed, date_acknowledged, stage_id, user_group_id)
+				(symbolic, assoc_type, assoc_id, user_id, user_group_id, file_id, file_revision, date_notified, date_underway, date_completed, date_acknowledged)
 				VALUES
-				(?, ?, ?, ?, ?, ?, %s, %s, %s, %s, ?, ?)',
+				(?, ?, ?, ?, ?, ?, ?, %s, %s, %s, %s, ?)',
 				$this->datetimeToDB($signoff->getDateNotified()),
 				$this->datetimeToDB($signoff->getDateUnderway()),
 				$this->datetimeToDB($signoff->getDateCompleted()),
@@ -165,10 +158,10 @@ class SignoffDAO extends DAO {
 				(int) $signoff->getAssocType(),
 				(int) $signoff->getAssocId(),
 				(int) $signoff->getUserId(),
+				$this->nullOrInt($signoff->getUserGroupId(),
 				$this->nullOrInt($signoff->getFileId()),
-				$this->nullOrInt($signoff->getFileRevision()),
-				$this->nullOrInt($signoff->getStageId()),
-				$this->nullOrInt($signoff->getUserGroupId())
+				$this->nullOrInt($signoff->getFileRevision())
+				)
 			)
 		);
 		$signoff->setId($this->getInsertId());
@@ -188,14 +181,13 @@ class SignoffDAO extends DAO {
 					assoc_type = ?,
 					assoc_id = ?,
 					user_id = ?,
+					user_group_id = ?
 					file_id = ?,
 					file_revision = ?,
 					date_notified = %s,
 					date_underway = %s,
 					date_completed = %s,
-					date_acknowledged = %s,
-					stage_id = ?,
-					user_group_id = ?
+					date_acknowledged = %s
 				WHERE	signoff_id = ?',
 				$this->datetimeToDB($signoff->getDateNotified()),
 				$this->datetimeToDB($signoff->getDateUnderway()),
@@ -207,10 +199,9 @@ class SignoffDAO extends DAO {
 				(int) $signoff->getAssocType(),
 				(int) $signoff->getAssocId(),
 				(int) $signoff->getUserId(),
+				$this->nullOrInt($signoff->getUserGroupId()),
 				$this->nullOrInt($signoff->getFileId()),
 				$this->nullOrInt($signoff->getFileRevision()),
-				$this->nullOrInt($signoff->getStageId()),
-				$this->nullOrInt($signoff->getUserGroupId()),
 				(int) $signoff->getId()
 			)
 		);
@@ -247,7 +238,7 @@ class SignoffDAO extends DAO {
 	 * @param $fileRevision int
 	 * @return Signoff
 	 */
-	function getBySymbolic($symbolic, $assocType, $assocId, $userId = null, $stageId = null,
+	function getBySymbolic($symbolic, $assocType, $assocId, $userId = null,
 			$userGroupId = null, $fileId = null, $fileRevision = null) {
 
 		$sql = 'SELECT * FROM signoffs WHERE symbolic = ? AND assoc_type = ? AND assoc_id = ?';
@@ -256,11 +247,6 @@ class SignoffDAO extends DAO {
 		if ($userId) {
 			$sql .= ' AND user_id = ?';
 			$params[] = (int) $userId;
-		}
-
-		if ($stageId) {
-			$sql .= ' AND stage_id = ?';
-			$params[] = (int) $stageId;
 		}
 
 		if ($userGroupId) {
@@ -290,7 +276,7 @@ class SignoffDAO extends DAO {
 
 	/**
 	 * Retrieve all signoffs matching the specified input parameters
-	 * @param $symbolic string
+	 * @param $symbolic string or array
 	 * @param $assocType int
 	 * @param $assocId int
 	 * @param $userId int
@@ -298,9 +284,15 @@ class SignoffDAO extends DAO {
 	 * @param $userGroupId int
 	 * @return DAOResultFactory
 	 */
-	function getAllBySymbolic($symbolic, $assocType = null, $assocId = null, $userId = null, $stageId = null, $userGroupId = null) {
-		$sql = 'SELECT * FROM signoffs WHERE symbolic = ?';
-		$params = array($symbolic);
+	function getAllBySymbolic($symbolic, $assocType = null, $assocId = null, $userId = null, $userGroupId = null) {
+		// Look for many different 'symbolics' or just one.
+		if ( is_array($symbolic) ) {
+			$sql = 'SELECT * FROM signoffs WHERE symbolic IN (' . implode($symbolic, ', ') . ')';
+			$params = $symbolic;
+		} else {
+			$sql = 'SELECT * FROM signoffs WHERE symbolic = ?';
+			$params = array($symbolic);
+		}
 
 		if ($assocType) {
 			$sql .= ' AND assoc_type = ?';
@@ -315,11 +307,6 @@ class SignoffDAO extends DAO {
 		if ($userId) {
 			$sql .= ' AND user_id = ?';
 			$params[] = (int) $userId;
-		}
-
-		if ($stageId) {
-			$sql .= ' AND stage_id = ?';
-			$params[] = (int) $stageId;
 		}
 
 		if ($userGroupId) {
@@ -368,7 +355,7 @@ class SignoffDAO extends DAO {
 
 	/**
 	 * Get all users assigned to a particular workflow stage
-	 * @param $symbolic string
+	 * @param $symbolic string or array
 	 * @param $assocType int
 	 * @param $assocId int
 	 * @param $stageId int
@@ -376,16 +363,21 @@ class SignoffDAO extends DAO {
 	 * @param $unique boolean
 	 * @return object
  	 */
-	function &getUsersBySymbolic($symbolic, $assocType, $assocId, $stageId = null, $userGroupId = null, $unique = true) {
+	function &getUsersBySymbolic($symbolic, $assocType, $assocId, $userGroupId = null, $unique = true) {
 		$selectDistinct = $unique ? 'SELECT DISTINCT' : 'SELECT';
-		$sql = $selectDistinct . ' u.* FROM users u, signoffs s
-				WHERE u.user_id = s.user_id AND s.symbolic = ? AND s.assoc_type = ? AND s.assoc_id = ?';
-		$params = array($symbolic, (int) $assocType, (int) $assocId);
 
-		if ($stageId) {
-			$sql .= ' AND s.stage_id = ?';
-			$params[] = (int) $stageId;
+		// Look for many different 'symbolics' or just one.
+		if ( is_array($symbolic) ) {
+			$symbolicSql = 's.symbolic IN (' . implode($symbolic, ', ') . ')';
+			$params = $symbolic;
+		} else {
+			$symbolicSql = 's.symbolic = ?';
+			$params = array($symbolic);
 		}
+
+		$sql = $selectDistinct . ' u.* FROM users u, signoffs s ON
+				WHERE u.user_id = s.user_id AND ' . $symbolicSql . ' AND s.assoc_type = ? AND s.assoc_id = ?';
+				array_merge($symbolic, array((int) $assocType, (int) $assocId));
 
 		if ($userGroupId) {
 			$sql .= ' AND s.user_group_id = ?';
