@@ -7,7 +7,7 @@
  * form section
  *}
 
-<li{if $FBV_class} class="{$FBV_class|escape}"{/if}>
+<{$FBV_container_type}{if $FBV_class} class="{$FBV_class|escape}"{/if}>
 	{if $FBV_title}<label class="desc"{if $FBV_labelFor} for="{$FBV_labelFor|escape}"{/if}>{translate key=$FBV_title}{if $FBV_required}<span class="req">*</span>{/if}</label>{/if}
 	{if $FBV_layoutColumns}<div class="col">{/if}
 
@@ -18,5 +18,5 @@
 		{$FBV_content}
 
 	{if $FBV_layoutColumns}</div>{/if}
-</li>
+</{$FBV_container_type}>
 
