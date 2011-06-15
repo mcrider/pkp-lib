@@ -174,7 +174,6 @@ class Form {
 
 		// modifier vocabulary for creating forms
 		$templateMgr->register_block('fbvFormSection', array(&$this, 'smartyFBVFormSection'));
-		$templateMgr->register_block('fbvCustomElement', array(&$this, 'smartyFBVCustomElement'));
 		$templateMgr->register_block('fbvFormArea', array(&$this, 'smartyFBVFormArea'));
 		$templateMgr->register_function('fbvElement', array(&$this, 'smartyFBVElement'));
 		$templateMgr->assign('fbvStyles', $this->fbvStyles);
@@ -488,11 +487,36 @@ class Form {
 		return $returner;
 	}
 
-	/** form builder vocabulary - FBV */
+	/**
+	 * Form Builder Vocabulary - FBV
+	 * Generates form code in templates using {fbvX} calls.
+	 * Group form areas with the {fbvFormArea} call.  These sections mark off groups of semantically
+	 *  related form sections.
+	 *  Parameters:
+	 *   id: The form area ID
+	 *   class (optional): Any additional classes
+	 *   title (optional): Title of the area
+	 * Group form sections with the {fbvFormSection} call.  These sections organize directly related form elements.
+	 *  Parameters:
+	 *   id: The section ID
+	 *   class (optional): Any additional classes
+	 *   title (optional): Title of the area
+	 * Form elements are created with {fbvElement type="type"} plus any additional parameters.
+	 * Each specific element type may have other additional attributes (see their method comments)
+	 *  Parameters:
+	 *   type: The form element type (one of the cases in the smartyFBVElement method)
+	 *   id: The element ID
+	 *   class (optional): Any additional classes
+	 *   required (optional) whether the section should have a 'required' label (adds span.required)
+	 *   for (optional): What the section's label is for
+	 *   inline: Adds .inline to the element's parent container and causes it to display inline with other elements
+	 *   size: One of $fbvStyles.size.SMALL (adds .quarter to element's parent container) or $fbvStyles.size.MEDIUM (adds
+	 *    .half to element's parentcontainer)
+	 *   required: Adds an asterisk and a .required class to the element's label
+	 */
 
 	/**
 	 * A form area that contains form sections.
-	 * parameters: id
 	 * @param $params array
 	 * @param $content string
 	 * @param $smarty object
@@ -515,7 +539,6 @@ class Form {
 
 	/**
 	 * A form section that contains controls in a variety of layout possibilities.
-	 * parameters: title, float (optional), layout (optional), group (optional), required (optional), for (optinal)
 	 * @param $params array
 	 * @param $content string
 	 * @param $smarty object
@@ -523,7 +546,6 @@ class Form {
 	 */
 	function smartyFBVFormSection($params, $content, &$smarty, &$repeat) {
 		if (!$repeat) {
-			$smarty->assign('FBV_group', isset($params['group']) ? $params['group'] : false);
 			$smarty->assign('FBV_required', isset($params['required']) ? $params['required'] : false);
 			$smarty->assign('FBV_labelFor', empty($params['for']) ? null : $params['for']);
 
@@ -538,10 +560,16 @@ class Form {
 			// If we are displaying checkboxes or radio options, we'll need to use a
 			//  list to organize our elements -- Otherwise we use divs and spans
 			if (isset($params['list']) && $params['list'] != false) {
-				$smarty->assign('FBV_container_type', 'ul');
-				$class .= ' checkbox_and_radiobutton';
+				$sectionTemplate = 'form/formSectionList.tpl';
 			} else {
-				$smarty->assign('FBV_container_type', 'div');
+				// Double check that we don't have lists in the content.
+				//  This is a kludge but the only way to make sure we've
+				//  set the list parameter when we're using lists
+				if (substr(trim($content), 0, 4) == "<li>") {
+					 $smarty->trigger_error('FBV: list attribute not set on form section containing lists');
+				}
+
+				$sectionTemplate = 'form/formSection.tpl';
 			}
 
 			$smarty->assign('FBV_sectionErrors', $this->formSectionErrors);
@@ -550,7 +578,7 @@ class Form {
 			$smarty->assign('FBV_layoutColumns', empty($params['layout']) ? false : true);
 			$this->formSectionErrors = array();
 
-			return $smarty->fetch('form/formSection.tpl');
+			return $smarty->fetch($sectionTemplate);
 
 		} else {
 			$this->formSectionErrors = array();
@@ -559,8 +587,7 @@ class Form {
 	}
 
 	/**
-	 * Form element.
-	 * parameters: type, id, label (optional), required (optional), measure, any other attributes specific to 'type'
+	 * Base form element.
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -588,8 +615,6 @@ class Form {
 			case 'checkbox':
 				$content = $this->_smartyFBVCheckbox($params, $smarty);
 				unset($params['label']);
-				break;
-			case 'custom':
 				break;
 			case 'file':
 				$content = $this->_smartyFBVFileInput($params, $smarty);
@@ -646,24 +671,8 @@ class Form {
 	}
 
 	/**
-	 * Custom form element. User form code is placed between customElement tags.
-	 * parameters: id, label (optional), required (optional)
-	 * @param $params array
-	 * @param $content string
-	 * @param $smarty object
-	 * @param $repeat
-	 */
-	function _smartyFBVCustomElement($params, $content, &$smarty, &$repeat) {
-		if (!$repeat) {
-			$params['type'] = 'custom';
-			return $this->smartyFBVElement($params, $smarty, $content);
-		}
-		return '';
-	}
-
-	/**
 	 * Form button.
-	 * parameters: label (or value), disabled (optional), type (optional), all other attributes associated with this control (except class)
+	 * parameters: label (or value), disabled (optional), type (optional)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -675,7 +684,7 @@ class Form {
 			unset($params['value']);
 		}
 
-		// the type of this button. the default value is 'button'
+		// the type of this button. the default value is 'button' (but could be 'submit')
 		$params['type'] = isset($params['type']) ? strtolower($params['type']) : 'button';
 		$params['disabled'] = isset($params['disabled']) ? $params['disabled'] : false;
 
@@ -684,6 +693,7 @@ class Form {
 			switch ($key) {
 				case 'label': $smarty->assign('FBV_label', $value); break;
 				case 'type': $smarty->assign('FBV_type', $value); break;
+				case 'class': break;
 				case 'disabled': $smarty->assign('FBV_disabled', $params['disabled']); break;
 				default: $buttonParams .= htmlspecialchars($key, ENT_QUOTES, LOCALE_ENCODING) . '="' . htmlspecialchars($value, ENT_QUOTES, LOCALE_ENCODING) . '" ';
 			}
@@ -696,7 +706,7 @@ class Form {
 
 	/**
 	 * Text link.
-	 * parameters: label (or value), disabled (optional), type (optional), all other attributes associated with this control (except class)
+	 * parameters: label (or value), disabled (optional)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -712,12 +722,17 @@ class Form {
 			unset($params['value']);
 		}
 
-		// the type of this button. the default value is 'button'
-		$params['type'] = isset($params['type']) ? strtolower($params['type']) : 'button';
-		$params['disabled'] = isset($params['disabled']) ? $params['disabled'] : false;
+		// Set the URL if there is one (defaults to '#' e.g. when the link should activate javascript)
+		if (isset($params['href'])) {
+			$smarty->assign('FBV_href', $params['href']);
+		} else {
+			$smarty->assign('FBV_href', '#');
+		}
 
 		foreach ($params as $key => $value) {
 			switch ($key) {
+				case 'type': break;
+				case 'class': break;
 				case 'label': $smarty->assign('FBV_label', $value); break;
 				case 'type': $smarty->assign('FBV_type', $value); break;
 				case 'disabled': $smarty->assign('FBV_disabled', $params['disabled']); break;
@@ -732,8 +747,7 @@ class Form {
 
 	/**
 	 * Form Autocomplete text input. (actually two inputs, label and value)
-	 * parameters: size, disabled (optional), name (optional - assigned value of 'id' by default),
-	 *  all other attributes associated with this control (except class and type)
+	 * parameters: disabled (optional), name (optional - assigned value of 'id' by default)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -760,7 +774,7 @@ class Form {
 
 	/**
 	 * Range slider input.
-	 * parameters: min, max, all other attributes associated with this control (except class and type)
+	 * parameters: min, max
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -782,7 +796,7 @@ class Form {
 
 	/**
 	 * Form text input.
-	 * parameters: size, disabled (optional), name (optional - assigned value of 'id' by default), multilingual (optional), all other attributes associated with this control (except class and type)
+	 * parameters: disabled (optional), name (optional - assigned value of 'id' by default), multilingual (optional)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -798,9 +812,9 @@ class Form {
 		$textInputParams = '';
 		foreach ($params as $key => $value) {
 			switch ($key) {
-				case 'class': break; //ignore class attributes
 				case 'label': break;
 				case 'type': break;
+				case 'class': break;
 				case 'size': break;
 				case 'validation': $smarty->assign('FBV_validation', $params['validation']); break;
 				case 'required': break; //ignore required field (define required fields in form class)
@@ -820,7 +834,7 @@ class Form {
 
 	/**
 	 * Form text area.
-	 * parameters: value, id, name (optional - assigned value of 'id' by default), disabled (optional), multilingual (optional), all other attributes associated with this control (except class)
+	 * parameters: value, id, name (optional - assigned value of 'id' by default), disabled (optional), multilingual (optional)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -844,7 +858,7 @@ class Form {
 				case 'type': break;
 				case 'size': break;
 				case 'rich': break;
-				case 'class': break; //ignore class attributes
+				case 'class': break;
 				case 'required': break; //ignore required field (define required fields in form class)
 				case 'disabled': $smarty->assign('FBV_disabled', $params['disabled']); break;
 				case 'multilingual': $smarty->assign('FBV_multilingual', $params['multilingual']); break;
@@ -859,7 +873,7 @@ class Form {
 
 	/**
 	 * Hidden input element.
-	 * parameters: value, id, name (optional - assigned value of 'id' by default), disabled (optional), multilingual (optional), all other attributes associated with this control (except class)
+	 * parameters: value, id, name (optional - assigned value of 'id' by default), disabled (optional), multilingual (optional)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -893,7 +907,7 @@ class Form {
 	/**
 	 * Form select control.
 	 * parameters: from [array], selected [array index], defaultLabel (optional), defaultValue (optional), disabled (optional),
-	 * 	translate (optional), name (optional - value of 'id' by default), all other attributes associated with this control (except class)
+	 * 	translate (optional), name (optional - value of 'id' by default)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -917,7 +931,8 @@ class Form {
 				case 'translate': $smarty->assign('FBV_translate', $value); break;
 				case 'defaultValue': $smarty->assign('FBV_defaultValue', $value); break;
 				case 'defaultLabel': $smarty->assign('FBV_defaultLabel', $value); break;
-				case 'class': break; //ignore class attributes
+				case 'class': break;
+				case 'type': break;
 				case 'disabled': $smarty->assign('FBV_disabled', $params['disabled']); break;
 				default: $selectParams .= htmlspecialchars($key, ENT_QUOTES, LOCALE_ENCODING) . '="' . htmlspecialchars($value, ENT_QUOTES, LOCALE_ENCODING) . '" ';
 			}
@@ -930,7 +945,7 @@ class Form {
 
 	/**
 	 * Checkbox input control.
-	 * parameters: label, disabled (optional), translate (optional), name (optional - value of 'id' by default), all other attributes associated with this control (except class and type)
+	 * parameters: label, disabled (optional), translate (optional), name (optional - value of 'id' by default)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -947,7 +962,7 @@ class Form {
 		$checkboxParams = '';
 		foreach ($params as $key => $value) {
 			switch ($key) {
-				case 'class': break; //ignore class attributes
+				case 'class': break;
 				case 'type': break;
 				case 'id': $smarty->assign('FBV_id', $params['id']); break;
 				case 'label': $smarty->assign('FBV_label', $params['label']); break;
@@ -967,7 +982,7 @@ class Form {
 
 	/**
 	 * Radio input control.
-	 * parameters: label, disabled (optional), translate (optional), name (optional - value of 'id' by default), all other attributes associated with this control (except class and type)
+	 * parameters: label, disabled (optional), translate (optional), name (optional - value of 'id' by default)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -981,6 +996,7 @@ class Form {
 		foreach ($params as $key => $value) {
 			switch ($key) {
 				case 'type': break;
+				case 'class': break;
 				case 'id': $smarty->assign('FBV_id', $params['id']); break;
 				case 'label': $smarty->assign('FBV_label', $params['label']); break;
 				case 'translate': $smarty->assign('FBV_translate', $params['translate']); break;
@@ -997,7 +1013,7 @@ class Form {
 
 	/**
 	 * File upload input.
-	 * parameters: submit (optional - name of submit button to include), disabled (optional), name (optional - value of 'id' by default), all other attributes associated with this control (except class and type)
+	 * parameters: submit (optional - name of submit button to include), disabled (optional), name (optional - value of 'id' by default)
 	 * @param $params array
 	 * @param $smarty object
 	 */
@@ -1012,6 +1028,7 @@ class Form {
 		foreach ($params as $key => $value) {
 			switch ($key) {
 				case 'type': break;
+				case 'class': break;
 				case 'id': $smarty->assign('FBV_id', $params['id']); break;
 				case 'submit': $smarty->assign('FBV_submit', $params['submit']); break;
 				case 'name': $smarty->assign('FBV_name', $params['name']); break;
@@ -1036,6 +1053,7 @@ class Form {
 		foreach ($params as $key => $value) {
 			switch ($key) {
 				case 'type': break;
+				case 'class': break;
 				case 'id': $smarty->assign('FBV_id', $params['id']); break;
 				case 'label': $smarty->assign('FBV_label', $params['label']); break;
 				case 'available': $smarty->assign('FBV_availableKeywords', $params['available']); break;
