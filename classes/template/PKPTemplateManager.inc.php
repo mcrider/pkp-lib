@@ -24,6 +24,8 @@ define('SMARTY_DIR', Core::getBaseDir() . DIRECTORY_SEPARATOR . 'lib' . DIRECTOR
 require_once('./lib/pkp/lib/smarty/Smarty.class.php');
 require_once('./lib/pkp/lib/smarty/plugins/modifier.escape.php'); // Seems to be needed?
 
+import('lib.pkp.classes.form.FormBuilderVocabulary');
+
 define('CACHEABILITY_NO_CACHE',		'no-cache');
 define('CACHEABILITY_NO_STORE',		'no-store');
 define('CACHEABILITY_PUBLIC',		'public');
@@ -147,6 +149,18 @@ class PKPTemplateManager extends Smarty {
 		$this->register_function('confirm', array(&$this, 'smartyConfirm'));
 		$this->register_function('confirm_submit', array(&$this, 'smartyConfirmSubmit'));
 		$this->register_function('modal_title', array(&$this, 'smartyModalTitle'));
+
+		// Modified vocabulary for creating forms
+		$fbv = new FormBuilderVocabulary($this);
+		$this->register_block('fbvFormSection', array(&$fbv, 'smartyFBVFormSection'));
+		$this->register_block('fbvFormArea', array(&$fbv, 'smartyFBVFormArea'));
+		$this->register_function('fbvElement', array(&$fbv, 'smartyFBVElement'));
+		$this->assign('fbvStyles', $fbv->getStyles());
+
+		$this->register_function('fieldLabel', array(&$fbv, 'smartyFieldLabel'));
+		$this->register_function('form_language_chooser', array(&$fbv, 'smartyFormLanguageChooser'));
+		$this->register_block('form_locale_iterator', array(&$fbv, 'formLocaleIterator'));
+
 
 		// register the resource name "core"
 		$this->register_resource("core", array(array(&$this, 'smartyResourceCoreGetTemplate'),
