@@ -7,8 +7,13 @@
  * Form button bar
  *}
 
-{fbvFormSection id=$FBV_id class="formButtons"}
+{fbvFormSection class="formButtons"}
 	{if !$FBV_hideCancel}
+		{if $FBV_confirmCancel}
+			{include file="linkAction/buttonRedirectLinkAction.tpl"
+				 buttonSelector="#cancelFormButton"
+				 dialogText="$FBV_confirmCancel"}
+		{/if}
 		{fbvElement type="link" class="cancelFormButton" id="cancelFormButton" label=$FBV_cancelText}
 	{/if}
 
