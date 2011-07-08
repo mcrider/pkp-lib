@@ -10,9 +10,8 @@
 {fbvFormSection class="formButtons"}
 	{if !$FBV_hideCancel}
 		{if $FBV_confirmCancel}
-			{include file="linkAction/buttonRedirectLinkAction.tpl"
-				 buttonSelector="#cancelFormButton"
-				 dialogText="$FBV_confirmCancel"}
+			{include file="linkAction/buttonGenericLinkAction.tpl"
+				 action=$cancelAction}
 		{/if}
 		{fbvElement type="link" class="cancelFormButton" id="cancelFormButton" label=$FBV_cancelText}
 	{/if}
