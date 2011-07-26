@@ -30,6 +30,8 @@ class NotificationSettingsDAO extends DAO {
 	 * @return array
 	 */
 	function &getNotificationSettings($userId) {
+		// FIXME: get rid of product and context here. Product should go altogether
+		// and the context should come from the calling context.
 		$application =& PKPApplication::getApplication();
 		$productName = $application->getName();
 		$context =& Request::getContext();

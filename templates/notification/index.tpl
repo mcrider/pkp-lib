@@ -38,8 +38,8 @@
 			<td class="notificationContent" colspan="2" width="80%">
 				{$notification->getDateCreated()}
 			</td>
-			{if $notification->getLocation() != null}
-				<td class="notificationFunction" style="min-width:60px"><a href="{$notification->getLocation()}">{translate key="notification.location"}</a></td>
+			{if $notification->getUrl() != null}
+				<td class="notificationFunction" style="min-width:60px"><a href="{$notification->getUrl()}">{translate key="notification.location"}</a></td>
 			{else}
 				<td class="notificationFunction"></td>
 			{/if}
@@ -51,11 +51,9 @@
 			<td width="25">&nbsp;</td>
 			<td class="notificationContent">
 				{if $notification->getIsUnread()}
-					{if $notification->getIsLocalized()}<p style="font-weight: bold">{translate key=$notification->getContents() param=$notification->getParam()}</p>
-					{else}<p style="font-weight: bold">{$notification->getContents()}{/if}
+					<p style="font-weight: bold">{$notification->getContents()}
 				{else}
-					{if $notification->getIsLocalized()}<p>{translate key=$notification->getContents() param=$notification->getParam()}</p>
-					{else}<p>{$notification->getContents()}</p>{/if}
+					<p>{$notification->getContents()}</p>
 				{/if}
 			</td>
 		</tr>

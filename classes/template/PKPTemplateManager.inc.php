@@ -195,8 +195,10 @@ class PKPTemplateManager extends Smarty {
 			$user =& $request->getUser();
 			$hasSystemNotifications = false;
 			if ($user) {
+				$context =& $request->getContext();
+				$contextId = (isset($context)?$context->getId():null);
 				$notificationDao =& DAORegistry::getDAO('NotificationDAO');
-				$notifications =& $notificationDao->getNotificationsByUserId($user->getId(), NOTIFICATION_LEVEL_TRIVIAL);
+				$notifications =& $notificationDao->getNotificationsByUserId($contextId, $user->getId(), NOTIFICATION_LEVEL_TRIVIAL);
 				$notificationsArray =& $notifications->toArray();
 				if (!empty($notificationsArray)) {
 					$hasSystemNotifications = true;

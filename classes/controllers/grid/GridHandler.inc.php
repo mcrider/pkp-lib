@@ -322,7 +322,6 @@ class GridHandler extends PKPHandler {
 		Locale::requireComponents(array(LOCALE_COMPONENT_PKP_GRID, LOCALE_COMPONENT_APPLICATION_COMMON));
 	}
 
-
 	//
 	// Public handler methods
 	//

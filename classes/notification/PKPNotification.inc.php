@@ -16,7 +16,8 @@
 import('lib.pkp.classes.notification.NotificationDAO');
 
 define('NOTIFICATION_LEVEL_TRIVIAL',				0x0000001);
-define('NOTIFICATION_LEVEL_NORMAL',				0x0000002);
+define('NOTIFICATION_LEVEL_NORMAL',					0x0000002);
+define('NOTIFICATION_LEVEL_TASK', 					0x0000003);
 
 /** Notification associative types. */
 define('NOTIFICATION_TYPE_SUCCESS', 				0x0000001);
@@ -27,6 +28,8 @@ define('NOTIFICATION_TYPE_INFORMATION',				0x0000005);
 define('NOTIFICATION_TYPE_HELP', 				0x0000006);
 
 class PKPNotification extends DataObject {
+	/* @var $_initialized bool */
+	var $_initialized = false;
 
 	/**
 	 * Constructor.
@@ -115,14 +118,7 @@ class PKPNotification extends DataObject {
 	 * @param $dateRead date (YYYY-MM-DD HH:MM:SS)
 	 */
 	function setDateRead($dateRead) {
-		if(!isset($dateRead)) {
-			$this->setIsUnread(true);
-			$notificationDao =& DAORegistry::getDAO('NotificationDAO');
-			$notificationDao->setDateRead($this->getId());
-		} else {
-			$this->setIsUnread(false);
-			return $this->setData('dateRead', $dateRead);
-		}
+		return $this->setData('dateRead', $dateRead);
 	}
 
 	/**
@@ -130,95 +126,79 @@ class PKPNotification extends DataObject {
 	 * @return bool
 	 */
 	function getIsUnread() {
-		return $this->getData('isUnread');
+		$dateRead = $this->getDateRead();
+		return !empty($dateRead);
 	}
 
 	/**
-	 * set to true if notification has not been read
-	 * @param $isUnread bool
-	 */
-	function setIsUnread($isUnread) {
-		return $this->setData('isUnread', $isUnread);
-	}
-
-	/**
-	 * get notification title
+	 * Get notification title.
 	 * @return string
 	 */
 	function getTitle() {
+		if (!$this->getData('title')) $this->_initialize();
 		return $this->getData('title');
 	}
 
 	/**
-	 * set notification title
-	 * @param $contents int
+	 * Set notification title. Allow for an override param so that initialization does not erase user values.
+	 * @param $title int
+	 * @param $override bool
 	 */
-	function setTitle($title) {
-		return $this->setData('title', $title);
+	function setTitle($title, $override = true) {
+		if ($override) $this->setData('title', $title);
 	}
 
 	/**
-	 * get notification contents
+	 * Get notification contents
 	 * @return string
 	 */
 	function getContents() {
+		if (!$this->getData('title')) $this->_initialize();
 		return $this->getData('contents');
 	}
 
 	/**
-	 * set notification contents
+	 * Set notification contents. Allow for an override param so that initialization does not erase user values.
 	 * @param $contents int
+	 * @param $override bool
 	 */
-	function setContents($contents) {
-		return $this->setData('contents', $contents);
-	}
-
-	/**
-	 * get optional parameter (e.g. article title)
-	 * @return string
-	 */
-	function getParam() {
-		return $this->getData('param');
-	}
-
-	/**
-	 * set optional parameter
-	 * @param $param int
-	 */
-	function setParam($param) {
-		return $this->setData('param', $param);
+	function setContents($contents, $override = true) {
+		if ($override) $this->setData('contents', $contents);
 	}
 
 	/**
 	 * get URL that notification refers to
+	 * @param $request Request
 	 * @return int
 	 */
-	function getLocation() {
-		return $this->getData('location');
+	function getUrl($request) {
+		$baseUrl = $request->getBaseUrl();
+		$assocType = $this->getAssocType();
+		switch ($assocType) {
+			case ASSOC_TYPE_USER:
+			case ASSOC_TYPE_USER_GROUP:
+			case ASSOC_TYPE_CITATION:
+			case ASSOC_TYPE_AUTHOR:
+			case ASSOC_TYPE_EDITOR:
+			default:
+				return $baseUrl;
+		}
 	}
 
 	/**
-	 * set URL that notification refers to
-	 * @param $location int
-	 */
-	function setLocation($location) {
-		return $this->setData('location', $location);
-	}
-
-	/**
-	 * return true if message is localized (i.e. a system message)
+	 * get notification type
 	 * @return int
 	 */
-	function getIsLocalized() {
-		return $this->getData('isLocalized');
+	function getType() {
+		return $this->getData('type');
 	}
 
 	/**
-	 * set to true if message is localized (i.e. is a system message)
-	 * @param $isLocalized int
+	 * set notification type
+	 * @param $type int
 	 */
-	function setIsLocalized($isLocalized) {
-		return $this->setData('isLocalized', $isLocalized);
+	function setType($type) {
+		return $this->setData('type', $type);
 	}
 
 	/**
@@ -238,23 +218,40 @@ class PKPNotification extends DataObject {
 	}
 
 	/**
+	 * get notification assoc id
+	 * @return int
+	 */
+	function getAssocId() {
+		return $this->getData('assocId');
+	}
+
+	/**
+	 * set notification assoc id
+	 * @param $assocId int
+	 */
+	function setAssocId($assocId) {
+		return $this->setData('assocId', $assocId);
+	}
+
+	/**
 	 * get context id
 	 * @return int
 	 */
-	function getContext() {
-		return $this->getData('context');
+	function getContextId() {
+		return $this->getData('context_id');
 	}
 
 	/**
 	 * set context id
 	 * @param $context int
 	 */
-	function setContext($context) {
-		return $this->setData('context', $context);
+	function setContextId($contextId) {
+		return $this->setData('context_id', $contextId);
 	}
 
 	/**
-	 * get notification style class 
+	 * FIXME #6792 move these to CSS. maybe leave a getStyleClass, but no icons in the PHP side.
+	 * get notification style class
 	 * @return string
 	 */
 	function getStyleClass() {
@@ -269,7 +266,8 @@ class PKPNotification extends DataObject {
 	}
 
 	/**
-	 * get notification icon style class 
+	 * FIXME #6792 see above fixme.
+	 * get notification icon style class
 	 * @return string
 	 */
 	function getIconClass() {
@@ -284,11 +282,43 @@ class PKPNotification extends DataObject {
 	}
 
 	/**
+	 * FIXME: #6792 see above.
 	 * return the path to the icon for this type
 	 * @return string
 	 */
 	function getIconLocation() {
 		die ('ABSTRACT CLASS');
+	}
+
+	/**
+	 * Initialize the members that are type dependent
+	 * @return void
+	 */
+	function _initialize() {
+		if ($this->_initialized) return true;
+		$type = $this->getType();
+		assert(isset($type));
+		switch ($type) {
+			case NOTIFICATION_TYPE_SUCCESS:
+				$successMessage = __('common.changesSaved');
+				$this->setTitle($successMessage, false);
+				$this->setContent($successMessage, false);
+				break;
+			case NOTIFICATION_TYPE_WARNING:
+				// FIXME #6792 None of these types are used anywhere and thus have no keys defined
+				// We can remove them all perhaps? Until someone needs them? Or add keys for them.
+				break;
+			case NOTIFICATION_TYPE_ERROR:
+				break;
+			case NOTIFICATION_TYPE_FORBIDDEN:
+				break;
+			case NOTIFICATION_TYPE_INFORMATION:
+				break;
+			case NOTIFICATION_TYPE_HELP:
+				break;
+		}
+
+		$this->_initialized = true;
 	}
 }
 
