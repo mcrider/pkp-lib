@@ -54,12 +54,16 @@ class NotificationMailingListForm extends Form {
 	/**
 	 * Save the form
 	 */
-	function execute() {
+	function execute(&$request) {
 		$userEmail = $this->getData('email');
+		$router =& $request->getRouter();
+		$context =& $router->getContext($request);
 
 		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-		if($password = $notificationSettingsDao->subscribeGuest($userEmail)) {
-			Notification::sendMailingListEmail($userEmail, $password, 'NOTIFICATION_MAILLIST_WELCOME');
+		$notificationManager = new NotificationManager();
+		import('classes.notification.NotificationManager');
+		if($password = $notificationSettingsDao->subscribeGuest($userEmail, $context->getId())) {
+			$notificationManager->sendMailingListEmail($userEmail, $password, 'NOTIFICATION_MAILLIST_WELCOME');
 			return true;
 		} else {
 			PKPRequest::redirect(null, 'notification', 'mailListSubscribed', array('error'));
