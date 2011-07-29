@@ -27,33 +27,27 @@ class NotificationSettingsDAO extends DAO {
 	 * Returns an array of notification types that the user
 	 * does NOT want to be notified of
 	 * @param $userId int
+	 * @param $contextId int
 	 * @return array
 	 */
-	function &getNotificationSettings($userId) {
-		// FIXME: get rid of product and context here. Product should go altogether
-		// and the context should come from the calling context.
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
-		$notificationSettings = array();
+	function &getBlockedNotificationTypes($userId, $contextId) {
+		$blockedNotifications = array();
 
 		$result =& $this->retrieve(
-			'SELECT setting_value FROM notification_settings WHERE user_id = ? AND product = ? AND setting_name = ? AND context = ?',
-				array((int) $userId, $productName, 'notify', (int) $contextId)
+			'SELECT setting_value FROM notification_settings WHERE user_id = ? AND setting_name = ? AND context = ?',
+				array((int) $userId, 'notify', (int) $contextId)
 		);
 
 		while (!$result->EOF) {
 			$row = $result->GetRowAssoc(false);
-			$notificationSettings[] = (int) $row['setting_value'];
+			$blockedNotifications[] = (int) $row['setting_value'];
 			$result->moveNext();
 		}
 
 		$result->Close();
 		unset($result);
 
-		return $notificationSettings;
+		return $blockedNotifications;
 	}
 
 	/**
@@ -61,19 +55,15 @@ class NotificationSettingsDAO extends DAO {
 	 * Returns an array of notification types that the user
 	 * DOES want to be emailed about
 	 * @param $userId int
+	 * @param $contextId int
 	 * @return array
 	 */
-	function &getNotificationEmailSettings($userId) {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
+	function &getNotificationEmailSettings($userId, $contextId) {
 		$emailSettings = array();
 
 		$result =& $this->retrieve(
-			'SELECT setting_value FROM notification_settings WHERE user_id = ? AND product = ? AND setting_name = ? AND context = ?',
-				array((int) $userId, $productName, 'email', (int) $contextId)
+			'SELECT setting_value FROM notification_settings WHERE user_id = ? AND setting_name = ? AND context = ?',
+				array((int) $userId, 'email', (int) $contextId)
 		);
 
 		while (!$result->EOF) {
@@ -90,20 +80,16 @@ class NotificationSettingsDAO extends DAO {
 
 	/**
 	 * Update a user's notification settings
-	 * @param $notificationSettings array
+	 * @param $blockedNotifications array
 	 * @param $userId int
+	 * @param $contextId int
 	 */
-	function updateNotificationSettings($notificationSettings, $userId) {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
+	function updateBlockedNotificationTypes($blockedNotifications, $userId, $contextId) {
 		// Delete old settings first, then insert new settings
-		$this->update('DELETE FROM notification_settings WHERE user_id = ? AND product = ? AND setting_name = ? AND context = ?',
+		$this->update('DELETE FROM notification_settings WHERE user_id = ? AND setting_name = ? AND context = ?',
 			array((int) $userId, $productName, 'notify', (int) $contextId));
 
-		for ($i=0; $i<count($notificationSettings); $i++) {
+		for ($i=0; $i<count($blockedNotifications); $i++) {
 			$this->update(
 				'INSERT INTO notification_settings
 					(setting_name, setting_value, user_id, product, context)
@@ -111,9 +97,8 @@ class NotificationSettingsDAO extends DAO {
 					(?, ?, ?, ?, ?)',
 				array(
 					"notify",
-					$notificationSettings[$i],
+					$blockedNotifications[$i],
 					(int) $userId,
-					$productName,
 					(int) $contextId
 				)
 			);
@@ -124,28 +109,28 @@ class NotificationSettingsDAO extends DAO {
 	 * Update a user's notification email settings
 	 * @param $notificationEmailSettings array
 	 * @param $userId int
+	 * @param $contextId int
 	 */
-	function updateNotificationEmailSettings($emailSettings, $userId) {
+	function updateNotificationEmailSettings($emailSettings, $userId, $contextId) {
 		$application =& PKPApplication::getApplication();
 		$productName = $application->getName();
 		$context =& Request::getContext();
 		$contextId = $context?$context->getId():0;
 
 		// Delete old settings first, then insert new settings
-		$this->update('DELETE FROM notification_settings WHERE user_id = ? AND product = ? AND setting_name = ? AND context = ?',
-			array($userId, $productName, 'email', $contextId));
+		$this->update('DELETE FROM notification_settings WHERE user_id = ? AND setting_name = ? AND context = ?',
+			array($userId, 'email', $contextId));
 
 		for ($i=0; $i<count($emailSettings); $i++) {
 			$this->update(
 				'INSERT INTO notification_settings
-					(setting_name, setting_value, user_id, product, context)
+					(setting_name, setting_value, user_id, context)
 					VALUES
 					(?, ?, ?, ?, ?)',
 				array(
 					"email",
 					$emailSettings[$i],
 					(int) $userId,
-					$productName,
 					(int) $contextId
 				)
 			);
@@ -155,14 +140,10 @@ class NotificationSettingsDAO extends DAO {
 	/**
 	 * Gets a user id by an RSS token value
 	 * @param $token int
+	 * @param $contextId
 	 * @return int
 	 */
-	function getUserIdByRSSToken($token) {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
+	function getUserIdByRSSToken($token, $contextId) {
 		$result =& $this->retrieve(
 			'SELECT user_id FROM notification_settings WHERE setting_value = ? AND setting_name = ? AND product = ? AND context = ?',
 				array($token, 'token', $productName, (int) $contextId)
@@ -180,51 +161,42 @@ class NotificationSettingsDAO extends DAO {
 	/**
 	 * Gets an RSS token for a user id
 	 * @param $userId int
+	 * @param $contextId int
 	 * @return int
 	 */
-	function getRSSTokenByUserId($userId) {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
+	function getRSSTokenByUserId($userId, $contextId) {
 		$result =& $this->retrieve(
-			'SELECT setting_value FROM notification_settings WHERE user_id = ? AND setting_name = ? AND product = ? AND context = ?',
-				array((int) $userId, 'token', $productName, (int) $contextId)
+			'SELECT setting_value FROM notification_settings WHERE user_id = ? AND setting_name = ? AND context = ?',
+				array((int) $userId, 'token', (int) $contextId)
 		);
 
 		$row = $result->GetRowAssoc(false);
-		$userId = $row['setting_value'];
+		$tokenId = $row['setting_value'];
 
 		$result->Close();
 		unset($result);
 
-		return $userId;
+		return $tokenId;
 	}
 
 	/**
 	 * Generates and inserts a new token for a user's RSS feed
 	 * @param $userId int
+	 * @param $contextId int
 	 * @return int
 	 */
-	function insertNewRSSToken($userId) {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
+	function insertNewRSSToken($userId, $contextId) {
 		$token = uniqid(rand());
 
 		$this->update(
 			'INSERT INTO notification_settings
-				(setting_name, setting_value, user_id, product, context)
+				(setting_name, setting_value, user_id, context)
 				VALUES
 				(?, ?, ?, ?, ?)',
 			array(
 				'token',
 				$token,
 				(int) $userId,
-				$productName,
 				(int) $contextId
 			)
 		);
@@ -235,17 +207,13 @@ class NotificationSettingsDAO extends DAO {
 	/**
 	 * Generates an access key for the guest user and adds them to the settings table
 	 * @param $userId int
+	 * @param $contextId int
 	 * @return int
 	 */
-	function subscribeGuest($email) {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
+	function subscribeGuest($email, $contextId) {
 		// Check that the email doesn't already exist
 		$result =& $this->retrieve(
-			'SELECT * FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND product = ? AND context = ?',
+			'SELECT * FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND context = ?',
 			array(
 				'mailList',
 				$email,
@@ -258,7 +226,7 @@ class NotificationSettingsDAO extends DAO {
 			return false;
 		} else {
 			$this->update(
-				'DELETE FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND user_id = ? AND product = ? AND context = ?',
+				'DELETE FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND user_id = ? AND context = ?',
 				array(
 					'mailListUnconfirmed',
 					$email,
@@ -269,14 +237,13 @@ class NotificationSettingsDAO extends DAO {
 			);
 			$this->update(
 				'INSERT INTO notification_settings
-					(setting_name, setting_value, user_id, product, context)
+					(setting_name, setting_value, user_id, context)
 					VALUES
 					(?, ?, ?, ?, ?)',
 				array(
 					'mailListUnconfirmed',
 					$email,
 					0,
-					$productName,
 					(int) $contextId
 				)
 			);
@@ -296,19 +263,14 @@ class NotificationSettingsDAO extends DAO {
 	 * Removes an email address and associated access key from email notifications
 	 * @param $email string
 	 * @param $password string
+	 * @param $contextId int
 	 * @return boolean
 	 */
-	function unsubscribeGuest($email, $password) {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
+	function unsubscribeGuest($email, $password, $contextId) {
 		$result =& $this->retrieve(
-			'SELECT setting_id FROM notification_settings WHERE setting_name = ? AND product = ? AND context = ?',
+			'SELECT setting_id FROM notification_settings WHERE setting_name = ? AND context = ?',
 			array(
 				'mailList',
-				$productName,
 				(int) $contextId
 			)
 		);
@@ -326,11 +288,10 @@ class NotificationSettingsDAO extends DAO {
 
 		if ($accessKey) {
 			$this->update(
-				'DELETE FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND product = ? AND context = ?',
+				'DELETE FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND context = ?',
 				array(
 					'mailList',
 					$email,
-					$productName,
 					(int) $contextId
 				)
 			);
@@ -342,6 +303,9 @@ class NotificationSettingsDAO extends DAO {
 
 	/**
 	 * Gets the setting id for a maillist member (to access the accompanying access key)
+	 * @param $email string
+	 * @param $settingName string
+	 * @param $contextId int
 	 * @return array
 	 */
 	function getMailListSettingId($email, $settingName = 'mailListUnconfirmed') {
@@ -351,11 +315,10 @@ class NotificationSettingsDAO extends DAO {
 		$contextId = $context?$context->getId():0;
 
 		$result =& $this->retrieve(
-			'SELECT setting_id FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND product = ? AND context = ?',
+			'SELECT setting_id FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND context = ?',
 			array(
 				$settingName,
 				$email,
-				$productName,
 				(int) $contextId
 			)
 		);
@@ -368,6 +331,7 @@ class NotificationSettingsDAO extends DAO {
 
 	/**
 	 * Update the notification settings table to confirm the mailing list subscription
+	 * @param $settingId int
 	 * @return boolean
 	 */
 	function confirmMailListSubscription($settingId) {
@@ -381,18 +345,13 @@ class NotificationSettingsDAO extends DAO {
 	 * Gets a list of email addresses of users subscribed to the mailing list
 	 * @return array
 	 */
-	function getMailList() {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
+	function getMailList($contextId) {
 		$mailList = array();
 
 		$result =& $this->retrieve(
-			'SELECT setting_value FROM notification_settings WHERE setting_name = ? AND product = ? AND context = ?',
+			'SELECT setting_value FROM notification_settings WHERE setting_name = ? AND context = ?',
 			array(
 				'mailList',
-				$productName,
 				(int) $contextId
 			)
 		);
@@ -412,20 +371,15 @@ class NotificationSettingsDAO extends DAO {
 	/**
 	 * Generates and inserts a new password for a mailing list user
 	 * @param $email string
+	 * @param $contextId int
 	 * @return string
 	 */
-	function resetPassword($email) {
-		$application =& PKPApplication::getApplication();
-		$productName = $application->getName();
-		$context =& Request::getContext();
-		$contextId = $context?$context->getId():0;
-
+	function resetPassword($email, $contextId) {
 		$result =& $this->retrieve(
-			'SELECT setting_id FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND product = ? AND context = ?',
+			'SELECT setting_id FROM notification_settings WHERE setting_name = ? AND setting_value = ? AND context = ?',
 			array(
 				'mailList',
 				$email,
-				$productName,
 				(int) $contextId
 			)
 		);

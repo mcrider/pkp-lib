@@ -402,7 +402,6 @@
 		<field name="user_id" type="I8">
 			<NOTNULL/>
 		</field>
-		<field name="product" type="C2" size="20" />
 		<field name="context" type="I8">
 			<NOTNULL/>
 		</field>

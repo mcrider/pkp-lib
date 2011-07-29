@@ -34,27 +34,23 @@
 {iterate from=notifications item=notification}
 	<table width="100%" class="notifications">
 		<tr>
-			<td width="25"><img src="{$notification->getIconLocation()}" alt="&#187;"/></td>
+			<td width="25"><div class="notifyIcon {$notification->getIconClass()}">&nbsp;</div></td>
 			<td class="notificationContent" colspan="2" width="80%">
 				{$notification->getDateCreated()}
 			</td>
-			{if $notification->getUrl() != null}
-				<td class="notificationFunction" style="min-width:60px"><a href="{$notification->getUrl()}">{translate key="notification.location"}</a></td>
+			{if $notification->getUrl($request) != null}
+				<td class="notificationFunction" style="min-width:60px"><a href="{$notification->getUrl($request)}">{translate key="notification.location"}</a></td>
 			{else}
 				<td class="notificationFunction"></td>
 			{/if}
 			{if $isUserLoggedIn}
-				<td class="notificationFunction"><a href="{url op="delete" path=$notification->getId()}">{translate key="common.delete"}</a></td>
+				<td class="notificationFunction"><a href="{url op="delete" path=$notification->getId($request)}">{translate key="common.delete"}</a></td>
 			{/if}
 		</tr>
 		<tr>
 			<td width="25">&nbsp;</td>
 			<td class="notificationContent">
-				{if $notification->getIsUnread()}
-					<p style="font-weight: bold">{$notification->getContents()}
-				{else}
-					<p>{$notification->getContents()}</p>
-				{/if}
+				<p{if !$notification->getDateRead()} style="font-weight: bold"{/if}>{$notification->getContents()}
 			</td>
 		</tr>
 	</table>

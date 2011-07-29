@@ -46,6 +46,7 @@ class NotificationHandler extends Handler {
 		$notifications = $notificationDao->getNotificationsByUserId($contextId, $userId, NOTIFICATION_LEVEL_NORMAL, $rangeInfo);
 
 		$templateMgr->assign('notifications', $notifications);
+		$templateMgr->assign('request', $request);
 		$templateMgr->assign('unread', $notificationDao->getUnreadNotificationCount($contextId, $userId));
 		$templateMgr->assign('read', $notificationDao->getReadNotificationCount($contextId, $userId));
 		$templateMgr->assign('url', $router->url($request, null, 'notification', 'settings'));
@@ -72,7 +73,7 @@ class NotificationHandler extends Handler {
 			$contextId = isset($context)?$context->getId():null;
 
 			$notificationDao =& DAORegistry::getDAO('NotificationDAO');
-			$notificationDao->deleteNotificationById($notificationId, $userId);
+			$notificationDao->deleteNotificationById((int) $notificationId, $userId);
 		}
 
 		if (!$isAjax) {
@@ -95,7 +96,7 @@ class NotificationHandler extends Handler {
 		if(isset($user)) {
 			import('classes.notification.form.NotificationSettingsForm');
 			$notificationSettingsForm = new NotificationSettingsForm();
-			$notificationSettingsForm->display();
+			$notificationSettingsForm->display($request);
 		} else {
 			$router =& $request->getRouter();
 			$request->redirectUrl($router->url($request, null, 'notification'));
@@ -117,11 +118,11 @@ class NotificationHandler extends Handler {
 		$notificationSettingsForm->readInputData();
 
 		if ($notificationSettingsForm->validate()) {
-			$notificationSettingsForm->execute();
+			$notificationSettingsForm->execute($request);
 			$router =& $request->getRouter();
 			$request->redirectUrl($router->url($request, null, 'notification', 'settings'));
 		} else {
-			$notificationSettingsForm->display();
+			$notificationSettingsForm->display($request);
 		}
 	}
 
@@ -133,6 +134,7 @@ class NotificationHandler extends Handler {
 	function getNotificationFeedUrl($args, &$request) {
 		$user =& $request->getUser();
 		$router =& $request->getRouter();
+		$context =& $router->getContext($request);
 
 		if(isset($user)) {
 			$userId = $user->getId();
@@ -143,12 +145,12 @@ class NotificationHandler extends Handler {
 		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
 		$feedType = array_shift($args);
 
-		$token = $notificationSettingsDao->getRSSTokenByUserId($userId);
+		$token = $notificationSettingsDao->getRSSTokenByUserId($userId, $context->getId());
 
 		if ($token) {
 			$request->redirectUrl($router->url($request, null, 'notification', 'notificationFeed', array($feedType, $token)));
 		} else {
-			$token = $notificationSettingsDao->insertNewRSSToken($userId);
+			$token = $notificationSettingsDao->insertNewRSSToken($userId, $context->getId());
 			$request->redirectUrl($router->url($request, null, 'notification', 'notificationFeed', array($feedType, $token)));
 		}
 	}
@@ -159,6 +161,9 @@ class NotificationHandler extends Handler {
 	 * @param $request Request
 	 */
 	function notificationFeed($args, &$request) {
+		$router =& $request->getRouter();
+		$context =& $router->getContext($request);
+
 		if(isset($args[0]) && isset($args[1])) {
 			$type = $args[0];
 			$token = $args[1];
@@ -177,7 +182,7 @@ class NotificationHandler extends Handler {
 		$notificationDao =& DAORegistry::getDAO('NotificationDAO');
 		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
 
-		$userId = $notificationSettingsDao->getUserIdByRSSToken($token);
+		$userId = $notificationSettingsDao->getUserIdByRSSToken($token, $context->getId());
 		$notifications = $notificationDao->getNotificationsByUserId(null, $userId);
 
 		// Make sure the feed type is specified and valid
@@ -245,7 +250,7 @@ class NotificationHandler extends Handler {
 		$notificationMailingListForm->readInputData();
 
 		if ($notificationMailingListForm->validate()) {
-			$notificationMailingListForm->execute();
+			$notificationMailingListForm->execute($request);
 			$router =& $request->getRouter();
 			$request->redirectUrl($router->url($request, null, 'notification', 'mailListSubscribed', array('success')));
 		} else {
@@ -307,6 +312,9 @@ class NotificationHandler extends Handler {
 	 * @param $request Request
 	 */
 	function unsubscribeMailList($args, &$request) {
+		$router =& $request->getRouter();
+		$context =& $router->getContext($request);
+
 		$this->setupTemplate();
 		$templateMgr =& TemplateManager::getManager();
 
@@ -315,7 +323,7 @@ class NotificationHandler extends Handler {
 
 		if($userEmail != '' && $userPassword != '') {
 			$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-			if($notificationSettingsDao->unsubscribeGuest($userEmail, $userPassword)) {
+			if($notificationSettingsDao->unsubscribeGuest($userEmail, $userPassword, $context->getId())) {
 				$templateMgr->assign('success', "notification.unsubscribeSuccess");
 				$templateMgr->display('notification/maillistSettings.tpl');
 			} else {
@@ -324,7 +332,7 @@ class NotificationHandler extends Handler {
 			}
 		} else if($userEmail != '' && $userPassword == '') {
 			$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-			if($newPassword = $notificationSettingsDao->resetPassword($userEmail)) {
+			if($newPassword = $notificationSettingsDao->resetPassword($userEmail, $context->getId())) {
 				Notification::sendMailingListEmail($userEmail, $newPassword, 'NOTIFICATION_MAILLIST_PASSWORD');
 				$templateMgr->assign('success', "notification.reminderSent");
 				$templateMgr->display('notification/maillistSettings.tpl');
@@ -365,10 +373,6 @@ class NotificationHandler extends Handler {
 			foreach ($notificationsArray as $notification) {
 				$title = $notification->getTitle();
 				$contents = $notification->getContents();
-				if ($notification->getIsLocalized()) {
-					$title = Locale::translate($title);
-					$contents = Locale::translate($contents, $notification->getParam());
-				}
 				$notificationsData[] = array(
 					'pnotify_title' => (!is_null($title)) ? $title : $defaultTitle,
 					'pnotify_text' => $contents,
@@ -376,7 +380,7 @@ class NotificationHandler extends Handler {
 					'pnotify_notice_icon' => 'notifyIcon' . $notification->getIconClass()
 				);
 
-				$notificationDao->deleteNotificationById($notification->getId());
+				$notificationDao->deleteNotificationById($notification->getId(), $user->getId());
 			}
 
 			import('lib.pkp.classes.core.JSONMessage');

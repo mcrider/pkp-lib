@@ -44,13 +44,19 @@ class NotificationDAO extends DAO {
 
 	/**
 	 * Retrieve Notifications by user id
+	 * @param $contextId int
 	 * @param $userId int
+	 * @param $level int
+	 * @param $rangeInfo Object
 	 * @return object DAOResultFactory containing matching Notification objects
 	 */
 	function &getNotificationsByUserId($contextId = null, $userId, $level = NOTIFICATION_LEVEL_NORMAL, $rangeInfo = null) {
+		$params = array((int) $userId, (int) $level);
+		if ($contextId) $params[] = (int) $contextId;
+
 		$result =& $this->retrieveRange(
-			'SELECT * FROM notifications WHERE user_id = ? AND context_id = ? AND level = ? ORDER BY date_created DESC',
-			array((int) $userId, (int) $contextId, (int) $level), $rangeInfo
+			'SELECT * FROM notifications WHERE user_id = ? AND level = ?' . (isset($contextId) ?' AND context_id = ?' : '') . ' ORDER BY date_created DESC',
+			$params, $rangeInfo
 		);
 
 		$returner = new DAOResultFactory($result, $this, '_returnNotificationFromRow');
@@ -61,14 +67,17 @@ class NotificationDAO extends DAO {
 	/**
 	 * Retrieve Notifications by notification id
 	 * @param $notificationId int
+	 * @param $dateRead date
 	 * @return boolean
 	 */
-	function setDateRead($notificationId) {
+	function setDateRead($notificationId, $dateRead = null) {
+		$dateRead = isset($dateRead) ? $dateRead : Core::getCurrentDate();
+
 		$returner = $this->update(
 			sprintf('UPDATE notifications
 				SET date_read = %s
 				WHERE notification_id = ?',
-				$this->datetimeToDB(Core::getCurrentDate())),
+				$this->datetimeToDB($dateRead)),
 			(int) $notificationId
 		);
 
@@ -90,9 +99,14 @@ class NotificationDAO extends DAO {
 		$notification->setTitle($row['title']);
 		$notification->setContents($row['contents']);
 		$notification->setContextId($row['context_id']);
-		$notification->setType($row['row']);
+		$notification->setType($row['type']);
 		$notification->setAssocType($row['assoc_type']);
 		$notification->setAssocId($row['assoc_id']);
+
+		// If the notification has not been read, set the date read to now
+		if (!$notification->getDateRead()) {
+			$this->setDateRead($notification->getId());
+		}
 
 		HookRegistry::call('NotificationDAO::_returnNotificationFromRow', array(&$notification, &$row));
 
@@ -106,19 +120,9 @@ class NotificationDAO extends DAO {
 	 */
 	function insertNotification(&$notification) {
 		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-		if ($notification->getLevel() != NOTIFICATION_LEVEL_TRIVIAL) {
-			$notificationSettings = $notificationSettingsDao->getNotificationSettings($notification->getUserId());
-			$notificationEmailSettings = $notificationSettingsDao->getNotificationEmailSettings($notification->getUserId());
+		$blockedNotifications = $notificationSettingsDao->getBlockedNotificationTypes($notification->getUserId());
 
-			// FIXME #6792: this code should not be here. Send the notifications from the calling context
-			// or from the NotificationManager (have the notification Manager call the DAO to insert).
-			// insert should just insert.
-			if(in_array($notification->getType(), $notificationEmailSettings)) {
-				$this->sendNotificationEmail($notification);
-			}
-		}
-
-		if($notification->getLevel() == NOTIFICATION_LEVEL_TRIVIAL || !in_array($notification->getType(), $notificationSettings)) {
+		if($notification->getLevel() == NOTIFICATION_LEVEL_TRIVIAL || !in_array($notification->getType(), $blockedNotifications)) {
 			$this->update(
 				sprintf('INSERT INTO notifications
 						(user_id, level, date_created, title, contents, context_id, type, assoc_type, assoc_id)
@@ -149,45 +153,13 @@ class NotificationDAO extends DAO {
 	 * @param $notificationId int
 	 * @return boolean
 	 */
-	function deleteNotificationById($notificationId, $userId = null) {
+	function deleteNotificationById($notificationId, $userId) {
 		$params = array($notificationId);
 		if (isset($userId)) $params[] = $userId;
 
-		return $this->update('DELETE FROM notifications WHERE notification_id = ?' . (isset($userId) ? ' AND user_id = ?' : ''),
+		return $this->update('DELETE FROM notifications WHERE notification_id = ? AND user_id = ?',
 			$params
 		);
-	}
-
-	/**
-	 * Check if the same notification was added in the last hour
-	 * Will prevent multiple notifications to show up in a user's feed e.g.
-	 * if a user edits a submission multiple times in a short time span
-	 * @param notification object
-	 * @return boolean
-	 */
-	function notificationAlreadyExists(&$notification) {
-		$result =& $this->retrieve(
-			'SELECT date_created FROM notifications WHERE user_id = ? AND title = ? AND contents = ? AND type = ? AND context_id = ? AND level = ?',
-			array(
-					(int) $notification->getUserId(),
-					$notification->getTitle(),
-					$notification->getContents(),
-					(int) $notification->getType(),
-					(int) $notification->getContextId(),
-					(int) $notification->getLevel()
-				)
-		);
-
-		$date = isset($result->fields[0]) ? $result->fields[0] : 0;
-
-		if ($date == 0) {
-			return false;
-		} else {
-			$timeDiff = strtotime($date) - time();
-			if ($timeDiff < 3600) { // 1 hour (in seconds)
-				return true;
-			} else return false;
-		}
 	}
 
 	/**
@@ -234,35 +206,6 @@ class NotificationDAO extends DAO {
 		unset($result);
 
 		return $returner;
-	}
-
-	/**
-	 * Send an email to a user regarding the notification
-	 * @param $notification object Notification
-	 */
-	function sendNotificationEmail($notification) {
-		$userId = $notification->getUserId();
-		$userDao =& DAORegistry::getDAO('UserDAO');
-		$user = $userDao->getUser($userId);
-		Locale::requireComponents(array(LOCALE_COMPONENT_APPLICATION_COMMON));
-
-		// FIXME #6792: title and contents should only be for custom titles/content.
-		// should default to predefined text by notification type and assocType/Id
-		$notificationTitle = $notification->getTitle();
-		$notificationContents = $notification->getContents();
-
-		import('classes.mail.MailTemplate');
-		$site =& Request::getSite();
-		$mail = new MailTemplate('NOTIFICATION');
-		$mail->setFrom($site->getLocalizedContactEmail(), $site->getLocalizedContactName());
-		$mail->assignParams(array(
-			'notificationTitle' => $notificationTitle,
-			'notificationContents' => $notificationContents,
-			'url' => $notification->getUrl(),
-			'siteTitle' => $site->getLocalizedTitle()
-		));
-		$mail->addRecipient($user->getEmail(), $user->getFullName());
-		$mail->send();
 	}
 }
 

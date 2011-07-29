@@ -32,16 +32,17 @@ class PKPNotificationSettingsForm extends Form {
 	/**
 	 * Display the form.
 	 */
-	function display() {
-		$user = Request::getUser();
+	function display(&$request) {
+		$context =& $request->getContext();
+		$user = $request->getUser();
 		$userId = $user->getId();
 
 		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-		$notificationSettings = $notificationSettingsDao->getNotificationSettings($userId);
+		$blockedNotifications = $notificationSettingsDao->getBlockedNotificationTypes($userId, $context->getId());
 		$emailSettings = $notificationSettingsDao->getNotificationEmailSettings($userId);
 
 		$templateMgr =& TemplateManager::getManager();
-		$templateMgr->assign('notificationSettings', $notificationSettings);
+		$templateMgr->assign('blockedNotifications', $blockedNotifications);
 		$templateMgr->assign('emailSettings', $emailSettings);
 		$templateMgr->assign('titleVar', Locale::translate('common.title'));
 		$templateMgr->assign('userVar', Locale::translate('common.user'));

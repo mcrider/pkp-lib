@@ -26,6 +26,44 @@ class NotificationManager {
 	/**
 	 * Create a new notification with the specified arguments and insert into DB
 	 * This is a static method
+	 * @param $userId int
+	 * @param $notificationType int
+	 * @param $contextId int
+	 * @param $assocType int
+	 * @param $assocId int
+	 * @param $level int
+	 * @return Notification object
+	 */
+	function createNotification($userId, $notificationType, $contextId = null, $assocType, $assocId, $level = NOTIFICATION_LEVEL_NORMAL) {
+		$contextId = $contextId? (int) $contextId: 0;
+
+		$notification = new Notification();
+		$notification->setUserId((int) $userId);
+		$notification->setType((int) $notificationType);
+		$notification->setContextId((int) $contextId);
+		$notification->setAssocType((int) $assocType);
+		$notification->setAssocId((int) $assocId);
+		$notification->setLevel((int) $level);
+
+		$notificationDao =& DAORegistry::getDAO('NotificationDAO');
+		$notificationDao->insertNotification($notification);
+
+		// Send notification emails
+		if ($notification->getLevel() != NOTIFICATION_LEVEL_TRIVIAL) {
+			$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
+			$notificationEmailSettings = $notificationSettingsDao->getNotificationEmailSettings($userId);
+
+			if(in_array($notificationType, $notificationEmailSettings)) {
+				$this->sendNotificationEmail($notification);
+			}
+		}
+
+		return $notification;
+	}
+
+	/**
+	 * Create a new notification with the specified arguments and insert into DB
+	 * This is a static method
 	 * @param $title string
 	 * @param $contents string
 	 * @param $param string
@@ -33,8 +71,6 @@ class NotificationManager {
 	 * @return Notification object
 	 */
 	function createTrivialNotification($title, $contents, $assocType = NOTIFICATION_TYPE_SUCCESS, $param = null, $isLocalized = 1) {
-		$notification = new Notification();
-		$context =& Request::getContext();
 		$contextId = $context?$context->getId():0;
 
 		$user =& Request::getUser();
@@ -53,13 +89,41 @@ class NotificationManager {
 		return $notification;
 	}
 
+
+	/**
+	 * Send an email to a user regarding the notification
+	 * @param $notification object Notification
+	 */
+	function sendNotificationEmail($notification) {
+		$userId = $notification->getUserId();
+		$userDao =& DAORegistry::getDAO('UserDAO');
+		$user = $userDao->getUser($userId);
+		Locale::requireComponents(array(LOCALE_COMPONENT_APPLICATION_COMMON));
+
+		$notificationTitle = $notification->getTitle();
+		$notificationContents = $notification->getContents();
+
+		import('classes.mail.MailTemplate');
+		$site =& Request::getSite();
+		$mail = new MailTemplate('NOTIFICATION');
+		$mail->setFrom($site->getLocalizedContactEmail(), $site->getLocalizedContactName());
+		$mail->assignParams(array(
+			'notificationTitle' => $notificationTitle,
+			'notificationContents' => $notificationContents,
+			'url' => $notification->getUrl(),
+			'siteTitle' => $site->getLocalizedTitle()
+		));
+		$mail->addRecipient($user->getEmail(), $user->getFullName());
+		$mail->send();
+	}
+
 	/**
 	 * Send an update to all users on the mailing list
 	 * @param $notification object Notification
 	 */
 	function sendToMailingList($notification) {
 		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-		$mailList = $notificationSettingsDao->getMailList();
+		$mailList = $notificationSettingsDao->getMailList($notification->getContextId());
 		Locale::requireComponents(array(LOCALE_COMPONENT_APPLICATION_COMMON));
 
 		foreach ($mailList as $email) {

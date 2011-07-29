@@ -15,11 +15,12 @@
 
 import('lib.pkp.classes.notification.NotificationDAO');
 
+/** Notification levels.  Determines notification behavior **/
 define('NOTIFICATION_LEVEL_TRIVIAL',				0x0000001);
 define('NOTIFICATION_LEVEL_NORMAL',					0x0000002);
 define('NOTIFICATION_LEVEL_TASK', 					0x0000003);
 
-/** Notification associative types. */
+/** Notification types.  Determines what text and URL to display for notification */
 define('NOTIFICATION_TYPE_SUCCESS', 				0x0000001);
 define('NOTIFICATION_TYPE_WARNING', 				0x0000002);
 define('NOTIFICATION_TYPE_ERROR', 				0x0000003);
@@ -114,20 +115,10 @@ class PKPNotification extends DataObject {
 
 	/**
 	 * set date notification is read by user
-	 * Also sets setisUnread() if $dateRead is null
 	 * @param $dateRead date (YYYY-MM-DD HH:MM:SS)
 	 */
 	function setDateRead($dateRead) {
 		return $this->setData('dateRead', $dateRead);
-	}
-
-	/**
-	 * return true if reading for the first time
-	 * @return bool
-	 */
-	function getIsUnread() {
-		$dateRead = $this->getDateRead();
-		return !empty($dateRead);
 	}
 
 	/**
@@ -172,16 +163,10 @@ class PKPNotification extends DataObject {
 	 * @return int
 	 */
 	function getUrl($request) {
-		$baseUrl = $request->getBaseUrl();
 		$assocType = $this->getAssocType();
 		switch ($assocType) {
-			case ASSOC_TYPE_USER:
-			case ASSOC_TYPE_USER_GROUP:
-			case ASSOC_TYPE_CITATION:
-			case ASSOC_TYPE_AUTHOR:
-			case ASSOC_TYPE_EDITOR:
 			default:
-				return $baseUrl;
+				return $request->getBaseUrl();
 		}
 	}
 
@@ -250,12 +235,11 @@ class PKPNotification extends DataObject {
 	}
 
 	/**
-	 * FIXME #6792 move these to CSS. maybe leave a getStyleClass, but no icons in the PHP side.
 	 * get notification style class
 	 * @return string
 	 */
 	function getStyleClass() {
-		switch ($this->getAssocType()) {
+		switch ($this->getType()) {
 			case NOTIFICATION_TYPE_SUCCESS: return 'notifySuccess';
 			case NOTIFICATION_TYPE_WARNING: return 'notifyWarning';
 			case NOTIFICATION_TYPE_ERROR: return 'notifyError';
@@ -266,18 +250,18 @@ class PKPNotification extends DataObject {
 	}
 
 	/**
-	 * FIXME #6792 see above fixme.
 	 * get notification icon style class
 	 * @return string
 	 */
 	function getIconClass() {
-		switch ($this->getAssocType()) {
+		switch ($this->getType()) {
 			case NOTIFICATION_TYPE_SUCCESS: return 'notifyIconSuccess';
 			case NOTIFICATION_TYPE_WARNING: return 'notifyIconWarning';
 			case NOTIFICATION_TYPE_ERROR: return 'notifyIconError';
 			case NOTIFICATION_TYPE_INFO: return 'notifyIconInfo';
 			case NOTIFICATION_TYPE_FORBIDDEN: return 'notifyIconForbidden';
 			case NOTIFICATION_TYPE_HELP: return 'notifyIconHelp';
+			default: return 'notifyIconPageAlert';
 		}
 	}
 
@@ -303,18 +287,6 @@ class PKPNotification extends DataObject {
 				$successMessage = __('common.changesSaved');
 				$this->setTitle($successMessage, false);
 				$this->setContent($successMessage, false);
-				break;
-			case NOTIFICATION_TYPE_WARNING:
-				// FIXME #6792 None of these types are used anywhere and thus have no keys defined
-				// We can remove them all perhaps? Until someone needs them? Or add keys for them.
-				break;
-			case NOTIFICATION_TYPE_ERROR:
-				break;
-			case NOTIFICATION_TYPE_FORBIDDEN:
-				break;
-			case NOTIFICATION_TYPE_INFORMATION:
-				break;
-			case NOTIFICATION_TYPE_HELP:
 				break;
 		}
 
