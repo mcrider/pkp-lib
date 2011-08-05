@@ -120,22 +120,6 @@ class PKPNotification extends DataObject {
 	}
 
 	/**
-	 * Get notification title.
-	 * @return string
-	 */
-	function getTitle() {
-		return $this->getData('title');
-	}
-
-	/**
-	 * Set notification title. Allow for an override param so that initialization does not erase user values.
-	 * @param $title int
-	 */
-	function setTitle($title) {
-		$this->setData('title', $title);
-	}
-
-	/**
 	 * Get notification contents
 	 * @return string
 	 */

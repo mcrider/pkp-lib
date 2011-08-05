@@ -379,12 +379,10 @@ class NotificationHandler extends Handler {
 			// data from it and remove the NotificationHandler options
 			// code, in common/header.tpl.
 			$notificationsData = array();
-			$defaultTitle = Locale::translate('notification.notification');
 			foreach ($notificationsArray as $notification) {
-				$title = $notification->getTitle();
 				$contents = $notification->getContents();
 				$notificationsData[] = array(
-					'pnotify_title' => (!is_null($title)) ? $title : $defaultTitle,
+					'pnotify_title' => __('notification.notification'),
 					'pnotify_text' => $contents,
 					'pnotify_addClass' => $notification->getStyleClass(),
 					'pnotify_notice_icon' => 'notifyIcon' . $notification->getIconClass()

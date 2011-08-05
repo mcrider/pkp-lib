@@ -13,7 +13,7 @@
  * @brief Operations for retrieving and modifying user's notification settings.
  *  This class stores user settings that determine what notifications should appear
  *  to each user either in their notification feed or via email.
- *  This class also stores metadata for notifications (URL, title, contents) which
+ *  This class also stores metadata for notifications (URL, contents) which
  *  we do not want automatically constructed from the notification's associated object.
  */
 

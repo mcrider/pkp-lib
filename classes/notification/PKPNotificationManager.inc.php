@@ -37,11 +37,10 @@ class PKPNotificationManager {
 		// Build out the notification based on the associated object
 		$notifications =& $notifications->toArray(); // Cast to array so we can manipulate the notification objects
 		foreach($notifications as $notification) {
-			// First, check if the notification already has its URL, title, or
+			// First, check if the notification already has its URL or
 			//  contents set (via the settings table).  If it does, skip automatically
 			//  populating those values.
 			if(!$notification->getUrl()) $notification->setUrl($this->getNotificationUrl($request, $notification));
-			if(!$notification->getTitle()) $notification->setTitle($this->getNotificationTitle($request, $notification));
 			if(!$notification->getContents()) $notification->setContents($this->getNotificationContents($request, $notification));
 		}
 
@@ -82,27 +81,6 @@ class PKPNotificationManager {
 	}
 
 	/**
-	 * Construct a title for the notification based on its type and associated object
-	 * @param $request PKPRequest
-	 * @param $notification Notification
-	 * @return string
-	 */
-	function getNotificationTitle(&$request, &$notification) {
-		$type = $notification->getType();
-		assert(isset($type));
-
-		switch ($type) {
-			case NOTIFICATION_TYPE_SUCCESS:
-				$title = __('common.changesSaved');
-				break;
-			default:
-				$title = null;
-		}
-
-		return $title;
-	}
-
-	/**
 	 * Create a new notification with the specified arguments and insert into DB
 	 * This is a static method
 	 * @param $userId int
@@ -111,9 +89,11 @@ class PKPNotificationManager {
 	 * @param $assocType int
 	 * @param $assocId int
 	 * @param $level int
+	 * @param $contents string Override the notification's default contents
+	 * @param $url string Override the notification's default URL
 	 * @return Notification object
 	 */
-	function createNotification($userId, $notificationType, $contextId = null, $assocType, $assocId, $level = NOTIFICATION_LEVEL_NORMAL, $title = null, $contents = null, $url = null) {
+	function createNotification($userId, $notificationType, $contextId = null, $assocType, $assocId, $level = NOTIFICATION_LEVEL_NORMAL, $contents = null, $url = null) {
 		$contextId = $contextId? (int) $contextId: 0;
 
 		// Get set of notifications user does not want to be notified of
@@ -129,8 +109,7 @@ class PKPNotificationManager {
 			$notification->setAssocId((int) $assocId);
 			$notification->setLevel((int) $level);
 
-			// If we have custom values for title, contents, or url, set them so we can store the values in the settings table
-			if ($title) $notification->setTitle($title);
+			// If we have custom values for contents, or url, set them so we can store the values in the settings table
 			if ($contents) $notification->setContents($contents);
 			if ($url) $notification->setUrl($url);
 
@@ -154,17 +133,15 @@ class PKPNotificationManager {
 	/**
 	 * Create a new notification with the specified arguments and insert into DB
 	 * This is a static method
-	 * @param $title string
 	 * @param $contents string
 	 * @param $param string
 	 * @param $isLocalized boolean
 	 * @return Notification object
 	 */
-	function createTrivialNotification($title, $contents, $assocType = NOTIFICATION_TYPE_SUCCESS, $param = null, $isLocalized = 1) {
+	function createTrivialNotification($contents, $assocType = NOTIFICATION_TYPE_SUCCESS, $param = null, $isLocalized = 1) {
 		$user =& Request::getUser();
 		$notification = new Notification();
 		$notification->setUserId($user->getId());
-		$notification->setTitle($title);
 		$notification->setContents($contents);
 		$notification->setParam($param);
 		$notification->setIsLocalized($isLocalized);
@@ -189,7 +166,6 @@ class PKPNotificationManager {
 		$user = $userDao->getUser($userId);
 		Locale::requireComponents(array(LOCALE_COMPONENT_APPLICATION_COMMON));
 
-		$notificationTitle = $notification->getTitle();
 		$notificationContents = $notification->getContents();
 
 		import('classes.mail.MailTemplate');
@@ -197,7 +173,6 @@ class PKPNotificationManager {
 		$mail = new MailTemplate('NOTIFICATION');
 		$mail->setFrom($site->getLocalizedContactEmail(), $site->getLocalizedContactName());
 		$mail->assignParams(array(
-			'notificationTitle' => $notificationTitle,
 			'notificationContents' => $notificationContents,
 			'url' => $notification->getUrl(),
 			'siteTitle' => $site->getLocalizedTitle()

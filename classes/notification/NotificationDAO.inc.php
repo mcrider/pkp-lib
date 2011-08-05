@@ -45,7 +45,7 @@ class NotificationDAO extends DAO {
 	/**
 	 * Retrieve Notifications by user id
 	 * Note that this method will not return fully-fledged notification objects.  Use
-	 *  NotificationManager::getNotificationsForUser() to get notifications with URL, title, and contents
+	 *  NotificationManager::getNotificationsForUser() to get notifications with URL, and contents
 	 * @param $contextId int
 	 * @param $userId int
 	 * @param $level int
@@ -91,7 +91,7 @@ class NotificationDAO extends DAO {
 	 * @return array
 	 */
 	function getSettingNames() {
-		return array('url', 'title', 'contents');
+		return array('url', 'contents');
 	}
 
 	/**
