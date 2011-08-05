@@ -41,10 +41,13 @@ class NotificationHandler extends Handler {
 		$context =& $request->getContext();
 		$contextId = isset($context)?$context->getId():null;
 
-		$rangeInfo =& Handler::getRangeInfo('notifications');
-		$notificationDao =& DAORegistry::getDAO('NotificationDAO');
-		$notifications = $notificationDao->getNotificationsByUserId($contextId, $userId, NOTIFICATION_LEVEL_NORMAL, $rangeInfo);
+		import('classes.notification.NotificationManager');
+		$notificationManager = new NotificationManager();
 
+		$rangeInfo =& Handler::getRangeInfo('notifications');
+		$notifications = $notificationManager->getNotificationsForUser($request, $userId, NOTIFICATION_LEVEL_NORMAL, $contextId, $rangeInfo);
+
+		$notificationDao =& DAORegistry::getDAO('NotificationDAO');
 		$templateMgr->assign('notifications', $notifications);
 		$templateMgr->assign('request', $request);
 		$templateMgr->assign('unread', $notificationDao->getUnreadNotificationCount($contextId, $userId));
@@ -179,11 +182,12 @@ class NotificationHandler extends Handler {
 		$site =& $request->getSite();
 		$siteTitle = $site->getLocalizedTitle();
 
-		$notificationDao =& DAORegistry::getDAO('NotificationDAO');
 		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-
 		$userId = $notificationSettingsDao->getUserIdByRSSToken($token, $context->getId());
-		$notifications = $notificationDao->getNotificationsByUserId(null, $userId);
+
+		import('classes.notification.NotificationManager');
+		$notificationManager = new NotificationManager();
+		$notifications = $notificationManager->getNotificationsForUser($request, $userId, NOTIFICATION_LEVEL_NORMAL);
 
 		// Make sure the feed type is specified and valid
 		$typeMap = array(
@@ -333,7 +337,9 @@ class NotificationHandler extends Handler {
 		} else if($userEmail != '' && $userPassword == '') {
 			$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
 			if($newPassword = $notificationSettingsDao->resetPassword($userEmail, $context->getId())) {
-				Notification::sendMailingListEmail($userEmail, $newPassword, 'NOTIFICATION_MAILLIST_PASSWORD');
+				import('lib.pkp.classes.notification.NotificationManager');
+				$notificationManager = new NotificationManager();
+				$notificationManager->sendMailingListEmail($userEmail, $newPassword, 'NOTIFICATION_MAILLIST_PASSWORD');
 				$templateMgr->assign('success', "notification.reminderSent");
 				$templateMgr->display('notification/maillistSettings.tpl');
 			} else {
@@ -359,7 +365,11 @@ class NotificationHandler extends Handler {
 			$context =& $request->getContext();
 			$contextId = ($context)?$context->getId():null;
 			$notificationDao =& DAORegistry::getDAO('NotificationDAO');
-			$notifications =& $notificationDao->getNotificationsByUserId($contextId, $user->getId(), NOTIFICATION_LEVEL_TRIVIAL);
+
+			import('classes.notification.NotificationManager');
+			$notificationManager = new NotificationManager();
+			$notifications = $notificationManager->getNotificationsForUser($request, $user->getId(), NOTIFICATION_LEVEL_TRIVIAL, $contextId);
+
 			$notificationsArray =& $notifications->toArray();
 			unset($notifications);
 

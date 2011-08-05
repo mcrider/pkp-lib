@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @file classes/notification/NotificationSettingsDAODAO.inc.php
+ * @file classes/notification/NotificationSettingsDAO.inc.php
  *
  * Copyright (c) 2000-2011 John Willinsky
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
@@ -11,6 +11,10 @@
  * @see Notification
  *
  * @brief Operations for retrieving and modifying user's notification settings.
+ *  This class stores user settings that determine what notifications should appear
+ *  to each user either in their notification feed or via email.
+ *  This class also stores metadata for notifications (URL, title, contents) which
+ *  we do not want automatically constructed from the notification's associated object.
  */
 
 
@@ -20,6 +24,61 @@ class NotificationSettingsDAO extends DAO {
 	 */
 	function NotificationSettingsDAO() {
 		parent::DAO();
+	}
+
+	/**
+	 * Get an array of notification settings for a notification ID
+	 * @param $notificationId int
+	 * @return array
+	 */
+	function getNotificationSettings($notificationId) {
+		$notificationSettings = array();
+
+		$result =& $this->retrieve(
+			'SELECT setting_name, setting_value FROM notification_settings WHERE notification_id = ?', (int) $notificationId
+		);
+
+		while (!$result->EOF) {
+			$row =& $result->getRowAssoc(false);
+			$notificationSettings[$row['setting_name']] = $row['setting_value'];
+			$result->MoveNext();
+		}
+		$result->Close();
+		unset($result);
+
+		return $notificationSettings;
+	}
+
+	/**
+	 * Update a notification setting
+	 * @param $notification object
+	 * @param $settingName string
+	 * @param $settingValue string
+	 */
+	function updateNotificationSetting(&$notification, $settingName, $settingValue) {
+		$this->Replace('notification_settings',
+				array('notification_id' => (int) $notification->getId(),
+					  'context' => (int) $notification->getContextId(),
+					  'user_id' => (int) $notification->getUserId(),
+					  'setting_name' => $settingName,
+					  'setting_value' => $settingValue),
+				array('notification_id', 'setting_name'));
+	}
+
+	/**
+	 * Delete a notification setting by setting name
+	 * @param $notificationId int
+	 * @param $settingName string optional
+	 */
+	function deleteNotificationSettings($notificationId, $settingName = null) {
+		$params = array((int) $notificationId);
+		if ($settingName) $params[] = $settingName;
+
+		return $this->update(
+			'DELETE FROM notification_settings
+			WHERE notification_id= ?' . isset($settingName) ? '  AND setting_name = ?' : '',
+			$params
+		);
 	}
 
 	/**
@@ -87,14 +146,14 @@ class NotificationSettingsDAO extends DAO {
 	function updateBlockedNotificationTypes($blockedNotifications, $userId, $contextId) {
 		// Delete old settings first, then insert new settings
 		$this->update('DELETE FROM notification_settings WHERE user_id = ? AND setting_name = ? AND context = ?',
-			array((int) $userId, $productName, 'notify', (int) $contextId));
+			array((int) $userId, 'notify', (int) $contextId));
 
 		for ($i=0; $i<count($blockedNotifications); $i++) {
 			$this->update(
 				'INSERT INTO notification_settings
-					(setting_name, setting_value, user_id, product, context)
+					(setting_name, setting_value, user_id, context)
 					VALUES
-					(?, ?, ?, ?, ?)',
+					(?, ?, ?, ?)',
 				array(
 					"notify",
 					$blockedNotifications[$i],
@@ -119,14 +178,14 @@ class NotificationSettingsDAO extends DAO {
 
 		// Delete old settings first, then insert new settings
 		$this->update('DELETE FROM notification_settings WHERE user_id = ? AND setting_name = ? AND context = ?',
-			array($userId, 'email', $contextId));
+			array((int) $userId, 'email', (int) $contextId));
 
 		for ($i=0; $i<count($emailSettings); $i++) {
 			$this->update(
 				'INSERT INTO notification_settings
 					(setting_name, setting_value, user_id, context)
 					VALUES
-					(?, ?, ?, ?, ?)',
+					(?, ?, ?, ?)',
 				array(
 					"email",
 					$emailSettings[$i],
@@ -145,8 +204,8 @@ class NotificationSettingsDAO extends DAO {
 	 */
 	function getUserIdByRSSToken($token, $contextId) {
 		$result =& $this->retrieve(
-			'SELECT user_id FROM notification_settings WHERE setting_value = ? AND setting_name = ? AND product = ? AND context = ?',
-				array($token, 'token', $productName, (int) $contextId)
+			'SELECT user_id FROM notification_settings WHERE setting_value = ? AND setting_name = ? AND context = ?',
+				array($token, 'token', (int) $contextId)
 		);
 
 		$row = $result->GetRowAssoc(false);
@@ -192,7 +251,7 @@ class NotificationSettingsDAO extends DAO {
 			'INSERT INTO notification_settings
 				(setting_name, setting_value, user_id, context)
 				VALUES
-				(?, ?, ?, ?, ?)',
+				(?, ?, ?, ?)',
 			array(
 				'token',
 				$token,
@@ -217,7 +276,6 @@ class NotificationSettingsDAO extends DAO {
 			array(
 				'mailList',
 				$email,
-				$productName,
 				(int) $contextId
 			)
 		);
@@ -231,7 +289,6 @@ class NotificationSettingsDAO extends DAO {
 					'mailListUnconfirmed',
 					$email,
 					0,
-					$productName,
 					(int) $contextId
 				)
 			);
@@ -239,7 +296,7 @@ class NotificationSettingsDAO extends DAO {
 				'INSERT INTO notification_settings
 					(setting_name, setting_value, user_id, context)
 					VALUES
-					(?, ?, ?, ?, ?)',
+					(?, ?, ?, ?)',
 				array(
 					'mailListUnconfirmed',
 					$email,

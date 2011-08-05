@@ -29,8 +29,6 @@ define('NOTIFICATION_TYPE_INFORMATION',				0x0000005);
 define('NOTIFICATION_TYPE_HELP', 				0x0000006);
 
 class PKPNotification extends DataObject {
-	/* @var $_initialized bool */
-	var $_initialized = false;
 
 	/**
 	 * Constructor.
@@ -126,17 +124,15 @@ class PKPNotification extends DataObject {
 	 * @return string
 	 */
 	function getTitle() {
-		if (!$this->getData('title')) $this->_initialize();
 		return $this->getData('title');
 	}
 
 	/**
 	 * Set notification title. Allow for an override param so that initialization does not erase user values.
 	 * @param $title int
-	 * @param $override bool
 	 */
-	function setTitle($title, $override = true) {
-		if ($override) $this->setData('title', $title);
+	function setTitle($title) {
+		$this->setData('title', $title);
 	}
 
 	/**
@@ -144,30 +140,31 @@ class PKPNotification extends DataObject {
 	 * @return string
 	 */
 	function getContents() {
-		if (!$this->getData('title')) $this->_initialize();
 		return $this->getData('contents');
 	}
 
 	/**
 	 * Set notification contents. Allow for an override param so that initialization does not erase user values.
 	 * @param $contents int
-	 * @param $override bool
 	 */
-	function setContents($contents, $override = true) {
-		if ($override) $this->setData('contents', $contents);
+	function setContents($contents) {
+		$this->setData('contents', $contents);
 	}
 
 	/**
 	 * get URL that notification refers to
-	 * @param $request Request
-	 * @return int
+	 * @return string
 	 */
-	function getUrl($request) {
-		$assocType = $this->getAssocType();
-		switch ($assocType) {
-			default:
-				return $request->getBaseUrl();
-		}
+	function getUrl() {
+		$this->getData('url');
+	}
+
+	/**
+	 * Set the URL that the notification refers to
+	 * @param $url string
+	 */
+	function setUrl($url) {
+		$this->setData('url', $url);
 	}
 
 	/**
@@ -263,34 +260,6 @@ class PKPNotification extends DataObject {
 			case NOTIFICATION_TYPE_HELP: return 'notifyIconHelp';
 			default: return 'notifyIconPageAlert';
 		}
-	}
-
-	/**
-	 * FIXME: #6792 see above.
-	 * return the path to the icon for this type
-	 * @return string
-	 */
-	function getIconLocation() {
-		die ('ABSTRACT CLASS');
-	}
-
-	/**
-	 * Initialize the members that are type dependent
-	 * @return void
-	 */
-	function _initialize() {
-		if ($this->_initialized) return true;
-		$type = $this->getType();
-		assert(isset($type));
-		switch ($type) {
-			case NOTIFICATION_TYPE_SUCCESS:
-				$successMessage = __('common.changesSaved');
-				$this->setTitle($successMessage, false);
-				$this->setContent($successMessage, false);
-				break;
-		}
-
-		$this->_initialized = true;
 	}
 }
 

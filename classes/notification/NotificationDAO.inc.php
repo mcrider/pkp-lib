@@ -44,6 +44,8 @@ class NotificationDAO extends DAO {
 
 	/**
 	 * Retrieve Notifications by user id
+	 * Note that this method will not return fully-fledged notification objects.  Use
+	 *  NotificationManager::getNotificationsForUser() to get notifications with URL, title, and contents
 	 * @param $contextId int
 	 * @param $userId int
 	 * @param $level int
@@ -85,6 +87,14 @@ class NotificationDAO extends DAO {
 	}
 
 	/**
+	 * Get the list of custom field names for this table
+	 * @return array
+	 */
+	function getSettingNames() {
+		return array('url', 'title', 'contents');
+	}
+
+	/**
 	 * Creates and returns an notification object from a row
 	 * @param $row array
 	 * @return Notification object
@@ -96,8 +106,6 @@ class NotificationDAO extends DAO {
 		$notification->setLevel($row['level']);
 		$notification->setDateCreated($row['date_created']);
 		$notification->setDateRead($row['date_read']);
-		$notification->setTitle($row['title']);
-		$notification->setContents($row['contents']);
 		$notification->setContextId($row['context_id']);
 		$notification->setType($row['type']);
 		$notification->setAssocType($row['assoc_type']);
@@ -107,6 +115,14 @@ class NotificationDAO extends DAO {
 		if (!$notification->getDateRead()) {
 			$this->setDateRead($notification->getId());
 		}
+
+		// Set any values that have been added to the notification_settings table
+		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
+		$notificationSettings =& $notificationSettingsDao->getNotificationSettings($notification->getId());
+		foreach ($notificationSettings as $settingName => $settingValue) {
+			$notification->setData($settingName, $settingValue);
+		}
+
 
 		HookRegistry::call('NotificationDAO::_returnNotificationFromRow', array(&$notification, &$row));
 
@@ -119,33 +135,31 @@ class NotificationDAO extends DAO {
 	 * @return int Notification Id
 	 */
 	function insertNotification(&$notification) {
+		$this->update(
+			sprintf('INSERT INTO notifications
+					(user_id, level, date_created, context_id, type, assoc_type, assoc_id)
+				VALUES
+					(?, ?, %s, ?, ?, ?, ?)',
+				$this->datetimeToDB(Core::getCurrentDate())),
+			array(
+				(int) $notification->getUserId(),
+				(int) $notification->getLevel(),
+				(int) $notification->getContextId(),
+				(int) $notification->getType(),
+				(int) $notification->getAssocType(),
+				(int) $notification->getAssocId()
+			)
+		);
+		$notification->setId($this->getInsertNotificationId());
+
 		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-		$blockedNotifications = $notificationSettingsDao->getBlockedNotificationTypes($notification->getUserId());
-
-		if($notification->getLevel() == NOTIFICATION_LEVEL_TRIVIAL || !in_array($notification->getType(), $blockedNotifications)) {
-			$this->update(
-				sprintf('INSERT INTO notifications
-						(user_id, level, date_created, title, contents, context_id, type, assoc_type, assoc_id)
-					VALUES
-						(?, ?, %s, ?, ?, ?, ?, ?, ?)',
-					$this->datetimeToDB(Core::getCurrentDate())),
-				array(
-					(int) $notification->getUserId(),
-					(int) $notification->getLevel(),
-					$notification->getTitle(),
-					$notification->getContents(),
-					(int) $notification->getContextId(),
-					(int) $notification->getType(),
-					(int) $notification->getAssocType(),
-					(int) $notification->getAssocId()
-				)
-			);
-
-			$notification->setId($this->getInsertNotificationId());
-			return $notification->getId();
-		} else {
-			return false;
+		foreach($this->getSettingNames() as $settingName) {
+			$settingValue = $notification->getData($settingName);
+			if (isset($settingValue)) {
+				$notificationSettingsDao->updateNotificationSetting($notification, $settingName, $settingValue);
+			}
 		}
+		return $notification->getId();
 	}
 
 	/**
@@ -156,6 +170,9 @@ class NotificationDAO extends DAO {
 	function deleteNotificationById($notificationId, $userId) {
 		$params = array($notificationId);
 		if (isset($userId)) $params[] = $userId;
+
+		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
+		$notificationSettingsDao->deleteNotificationSettings($notificationId);
 
 		return $this->update('DELETE FROM notifications WHERE notification_id = ? AND user_id = ?',
 			$params

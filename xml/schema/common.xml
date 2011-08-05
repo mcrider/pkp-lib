@@ -367,8 +367,6 @@
 			<NOTNULL/>
 		</field>
 		<field name="date_read" type="T" />
-		<field name="title" type="C2" size="255" />
-		<field name="contents" type="X" />
 		<field name="assoc_type" type="I8" />
 		<field name="assoc_id" type="I8" />
 		<descr>Stores notifications for users as created by the system after certain operations.</descr>
@@ -393,6 +391,7 @@
 			<KEY />
 			<AUTOINCREMENT />
 		</field>
+		<field name="locale" type="C2" size="5" />
 		<field name="setting_name" type="C2" size="64">
 			<NOTNULL/>
 		</field>
@@ -405,7 +404,7 @@
 		<field name="context" type="I8">
 			<NOTNULL/>
 		</field>
-		<descr>Lists all notifications types for each user that they do NOT want to be informed of, and also contains a list of RSS feed tokens for each user.</descr>
+		<descr>Stores settings regarding user's notification preferences and metadata for specific notifications</descr>
 	</table>
 
 	<!-- Email tables -->
