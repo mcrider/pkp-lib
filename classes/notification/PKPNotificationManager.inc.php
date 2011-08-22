@@ -110,23 +110,76 @@ class PKPNotificationManager {
 	function getNotificationContents(&$request, &$notification) {
 		$type = $notification->getType();
 		assert(isset($type));
-		$contents = array();
+		$notificationDao =& DAORegistry::getDAO('NotificationDAO'); /* @var $notificationDao NotificationDAO */
 
 		switch ($type) {
 			case NOTIFICATION_TYPE_SUCCESS:
-				$contents['description'] = __('common.changesSaved');
-				break;
+				return __('common.changesSaved');
 			case NOTIFICATION_TYPE_FORM_ERROR:
 				$templateMgr =& TemplateManager::getManager();
 				$templateMgr->assign('errors', $notification->getData('contents'));
-				$contents['title'] = __('form.errorsOccurred');
-				$contents['description'] = $templateMgr->fetch('controllers/notification/formErrorNotificationContent.tpl');
-				break;
+				return $templateMgr->fetch('controllers/notification/formErrorNotificationContent.tpl');
+			case NOTIFICATION_TYPE_PLUGIN_ENABLED:
+				$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
+				$params = $notificationSettingsDao->getNotificationSettings($notification->getId());
+				return __('common.pluginEnabled', $this->getParamsForCurrentLocale($params));
+			case NOTIFICATION_TYPE_PLUGIN_DISABLED:
+				$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
+				$params = $notificationSettingsDao->getNotificationSettings($notification->getId());
+				return __('common.pluginDisabled', $this->getParamsForCurrentLocale($params));
+			case NOTIFICATION_TYPE_LOCALE_INSTALLED:
+				$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
+				$params = $notificationSettingsDao->getNotificationSettings($notification->getId());
+				return __('admin.languages.localeInstalled', $this->getParamsForCurrentLocale($params));
 			default:
-				$contents = null;
+				return null;
+		}
+	}
+
+	/**
+	 * Get the notification's title value
+	 * @param $notification
+	 * @return string
+	 */
+	function getNotificationTitle(&$notification) {
+		$type = $notification->getType();
+		assert(isset($type));
+
+		switch ($type) {
+			case NOTIFICATION_TYPE_FORM_ERROR:
+				return __('form.errorsOccurred');
+			default:
+				return __('notification.notification');
+		}
+	}
+
+
+	/**
+	 * Iterate through the localized params for a notification's locale key.
+	 *  For each parameter, return (in preferred order) a value for the user's current locale,
+	 *  a param for the journal's default locale, or the first value (in case the value
+	 *  is not localized)
+	 * @param $params
+	 * @return array
+	 */
+	function getParamsForCurrentLocale($params) {
+		$locale = Locale::getLocale();
+		$primaryLocale = Locale::getPrimaryLocale();
+
+		$localizedParams = array();
+		foreach ($params as $name => $value) {
+			if (!is_array($value)) {
+				$localizedParams[$name] = $value;
+			} elseif (isset($value[$locale])) {
+				$localizedParams[$name] = $value[$locale];
+			} elseif (isset($value[$primaryLocale])) {
+				$localizedParams[$name] = $value[$primaryLocale];
+			} else {
+				$localizedParams[$name] = array_shift($value);
+			}
 		}
 
-		return $contents;
+		return $localizedParams;
 	}
 
 	/**
@@ -173,10 +226,10 @@ class PKPNotificationManager {
 	 * @param $assocType int
 	 * @param $assocId int
 	 * @param $level int
-	 * @param $contents string Override the notification's default contents
+	 * @param $params array
 	 * @return Notification object
 	 */
-	function createNotification(&$request, $userId = null, $notificationType, $contextId = null, $assocType, $assocId, $level = NOTIFICATION_LEVEL_NORMAL, $contents = null) {
+	function createNotification(&$request, $userId, $notificationType, $contextId = null, $assocType = null, $assocId = null, $level = NOTIFICATION_LEVEL_NORMAL, $params = null) {
 		$contextId = $contextId? (int) $contextId: 0;
 
 		// Get set of notifications user does not want to be notified of
@@ -192,11 +245,8 @@ class PKPNotificationManager {
 			$notification->setAssocId((int) $assocId);
 			$notification->setLevel((int) $level);
 
-			// If we have custom values for contents, or url, set them so we can store the values in the settings table
-			if ($contents) $notification->setData('contents', $contents);
-
 			$notificationDao =& DAORegistry::getDAO('NotificationDAO');
-			$notificationDao->insertNotification($notification);
+			$notificationId = $notificationDao->insertNotification($notification);
 
 			// Send notification emails
 			if ($notification->getLevel() != NOTIFICATION_LEVEL_TRIVIAL) {
@@ -208,6 +258,13 @@ class PKPNotificationManager {
 				}
 			}
 
+			if ($params) {
+				$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
+				foreach($params as $name => $value) {
+					$notificationSettingsDao->updateNotificationSetting($notificationId, $name, $value);
+				}
+			}
+
 			return $notification;
 		}
 	}
@@ -216,22 +273,26 @@ class PKPNotificationManager {
 	 * Create a new notification with the specified arguments and insert into DB
 	 * This is a static method
 	 * @param $userId int
-	 * @param $contents string
 	 * @param $notificationType int
+	 * @param $params array
 	 * @return Notification object
 	 */
-	function createTrivialNotification($userId, $contents = null, $notificationType = NOTIFICATION_TYPE_SUCCESS) {
+	function createTrivialNotification($userId, $notificationType = NOTIFICATION_TYPE_SUCCESS, $params = null) {
 		$notification = new Notification();
 		$notification->setUserId($userId);
 		$notification->setContextId(0);
 		$notification->setType($notificationType);
 		$notification->setLevel(NOTIFICATION_LEVEL_TRIVIAL);
 
-		// If we have custom values for contents set them so we can store the values in the settings table
-		if ($contents) $notification->setData('contents', $contents);
-
 		$notificationDao =& DAORegistry::getDAO('NotificationDAO');
-		$notificationDao->insertNotification($notification);
+		$notificationId = $notificationDao->insertNotification($notification);
+
+		if ($params) {
+			$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
+			foreach($params as $name => $value) {
+				$notificationSettingsDao->updateNotificationSetting($notificationId, $name, $value);
+			}
+		}
 
 		return $notification;
 	}
@@ -259,18 +320,11 @@ class PKPNotificationManager {
 	function formatToGeneralNotification(&$request, &$notifications) {
 		$formattedNotificationsData = array();
 		foreach ($notifications as $notification) {
-			$contents = $this->getNotificationContents(&$request, $notification);
-			if (isset($contents['title'])) {
-				$title = $contents['title'];
-			} else {
-				$title = __('notification.notification');
-			}
-
 			$formattedNotificationsData[] = array(
-				'pnotify_title' => $title,
-				'pnotify_text' => $contents['description'],
+				'pnotify_title' => $this->getNotificationTitle($notification),
+				'pnotify_text' => $this->getNotificationContents(&$request, $notification),
 				'pnotify_addClass' => $this->getStyleClass($notification),
-				'pnotify_notice_icon' => 'notifyIcon' . $this->getIconClass($notification)
+				'pnotify_notice_icon' => $this->getIconClass($notification)
 			);
 		}
 
@@ -312,15 +366,13 @@ class PKPNotificationManager {
 		$user = $userDao->getUser($userId);
 		Locale::requireComponents(array(LOCALE_COMPONENT_APPLICATION_COMMON));
 
-		$notificationContents = $notification->getContents();
-
 		import('classes.mail.MailTemplate');
 		$site =& $request->getSite();
 		$mail = new MailTemplate('NOTIFICATION');
 		$mail->setFrom($site->getLocalizedContactEmail(), $site->getLocalizedContactName());
 		$mail->assignParams(array(
-			'notificationContents' => $notificationContents,
-			'url' => $notification->getUrl(),
+			'notificationContents' => $this->getNotificationContents(&$request, $notification),
+			'url' => $this->getNotificationUrl($request, $notification),
 			'siteTitle' => $site->getLocalizedTitle()
 		));
 		$mail->addRecipient($user->getEmail(), $user->getFullName());
@@ -338,13 +390,6 @@ class PKPNotificationManager {
 		Locale::requireComponents(array(LOCALE_COMPONENT_APPLICATION_COMMON));
 
 		foreach ($mailList as $email) {
-			if ($notification->getIsLocalized()) {
-				$params = array('param' => $notification->getParam());
-				$notificationContents = Locale::translate($notification->getContents(), $params);
-			} else {
-				$notificationContents = $notification->getContents();
-			}
-
 			import('classes.mail.MailTemplate');
 			$context =& $request->getContext();
 			$site =& $request->getSite();
@@ -352,8 +397,8 @@ class PKPNotificationManager {
 			$mail = new MailTemplate('NOTIFICATION_MAILLIST');
 			$mail->setFrom($site->getLocalizedContactEmail(), $site->getLocalizedContactName());
 			$mail->assignParams(array(
-				'notificationContents' => $notificationContents,
-				'url' => $notification->getLocation(),
+				'notificationContents' => $this->getNotificationContents(&$request, $notification),
+				'url' => $this->getNotificationUrl($request, $notification),
 				'siteTitle' => $context->getLocalizedTitle(),
 				'unsubscribeLink' => $request->url(null, 'notification', 'unsubscribeMailList')
 			));
@@ -363,7 +408,7 @@ class PKPNotificationManager {
 	}
 
 	/**
-	 * Static function to send an email to a mailing list user regarding signup or a lost password
+	 * Static function to send an email to a mailing list user e.g. regarding signup
 	 * @param $request PKPRequest
 	 * @param $email string
 	 * @param $token string the user's token (for confirming and unsubscribing)

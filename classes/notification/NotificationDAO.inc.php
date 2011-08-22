@@ -114,14 +114,6 @@ class NotificationDAO extends DAO {
 	}
 
 	/**
-	 * Get the list of custom field names for this table
-	 * @return array
-	 */
-	function getAdditionalFieldNames() {
-		return array('contents');
-	}
-
-	/**
 	 * Creates and returns an notification object from a row
 	 * @param $row array
 	 * @return Notification object
@@ -137,8 +129,6 @@ class NotificationDAO extends DAO {
 		$notification->setType($row['type']);
 		$notification->setAssocType($row['assoc_type']);
 		$notification->setAssocId($row['assoc_id']);
-
-		$this->getDataObjectSettings('notification_settings', 'notification_id', $row['notification_id'], $notification);
 
 		HookRegistry::call('NotificationDAO::_returnNotificationFromRow', array(&$notification, &$row));
 
@@ -167,19 +157,8 @@ class NotificationDAO extends DAO {
 			)
 		);
 		$notification->setId($this->getInsertNotificationId());
-		$this->_updateObjectMetadata($notification);
 
 		return $notification->getId();
-	}
-
-	/**
-	 * Update custom metadata for this notification
-	 * @param $notification Notification
-	 */
-	function _updateObjectMetadata(&$notification) {
-		// Persist notification meta-data
-		$this->updateDataObjectSettings('notification_settings', $notification,
-				array('notification_id' => $notification->getId()));
 	}
 
 	/**
@@ -189,7 +168,8 @@ class NotificationDAO extends DAO {
 	 * @return boolean
 	 */
 	function deleteNotificationById($notificationId, $userId = null) {
-		$this->update('DELETE FROM notification_settings WHERE notification_id = ?', (int) $notificationId);
+		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO'); /* @var $notificationSettingsDaoDao NotificationSettingsDAO */
+		$notificationSettingsDao->deleteSettingsByNotificationId($notificationId);
 
 		return $this->update('DELETE FROM notifications WHERE notification_id = ? AND user_id = ?',
 			array((int) $notificationId, (int) $userId)
@@ -229,7 +209,6 @@ class NotificationDAO extends DAO {
 
 		return $returner;
 	}
-
 }
 
 ?>
