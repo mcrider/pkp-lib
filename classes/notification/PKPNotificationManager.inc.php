@@ -110,7 +110,6 @@ class PKPNotificationManager {
 	function getNotificationContents(&$request, &$notification) {
 		$type = $notification->getType();
 		assert(isset($type));
-		$notificationDao =& DAORegistry::getDAO('NotificationDAO'); /* @var $notificationDao NotificationDAO */
 
 		switch ($type) {
 			case NOTIFICATION_TYPE_SUCCESS:
@@ -120,20 +119,25 @@ class PKPNotificationManager {
 				$templateMgr->assign('errors', $notification->getData('contents'));
 				return $templateMgr->fetch('controllers/notification/formErrorNotificationContent.tpl');
 			case NOTIFICATION_TYPE_PLUGIN_ENABLED:
-				$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-				$params = $notificationSettingsDao->getNotificationSettings($notification->getId());
-				return __('common.pluginEnabled', $this->getParamsForCurrentLocale($params));
+				return $this->_getTranslatedKeyWithParameters('common.pluginEnabled', $notification->getId());
 			case NOTIFICATION_TYPE_PLUGIN_DISABLED:
-				$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-				$params = $notificationSettingsDao->getNotificationSettings($notification->getId());
-				return __('common.pluginDisabled', $this->getParamsForCurrentLocale($params));
+				return $this->_getTranslatedKeyWithParameters('common.pluginDisabled', $notification->getId());
 			case NOTIFICATION_TYPE_LOCALE_INSTALLED:
-				$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO');
-				$params = $notificationSettingsDao->getNotificationSettings($notification->getId());
-				return __('admin.languages.localeInstalled', $this->getParamsForCurrentLocale($params));
+				return $this->_getTranslatedKeyWithParameters('admin.languages.localeInstalled', $notification->getId());
 			default:
 				return null;
 		}
+	}
+
+	/**
+	 * Helper function to get a translated string from a notification with parameters
+	 * @param $key string
+	 * @param $notificationId int
+	 */
+	function _getTranslatedKeyWithParameters($key, $notificationId) {
+		$notificationSettingsDao =& DAORegistry::getDAO('NotificationSettingsDAO'); /* @var $notificationSettingsDao NotificationSettingsDAO */
+		$params = $notificationSettingsDao->getNotificationSettings($notificationId);
+		return __($key, $this->getParamsForCurrentLocale($params));
 	}
 
 	/**
@@ -159,7 +163,7 @@ class PKPNotificationManager {
 	 *  For each parameter, return (in preferred order) a value for the user's current locale,
 	 *  a param for the journal's default locale, or the first value (in case the value
 	 *  is not localized)
-	 * @param $params
+	 * @param $params array
 	 * @return array
 	 */
 	function getParamsForCurrentLocale($params) {
@@ -169,13 +173,22 @@ class PKPNotificationManager {
 		$localizedParams = array();
 		foreach ($params as $name => $value) {
 			if (!is_array($value)) {
+				// Non-localized text
 				$localizedParams[$name] = $value;
 			} elseif (isset($value[$locale])) {
+				// Check if the parameter is in the user's current locale
 				$localizedParams[$name] = $value[$locale];
 			} elseif (isset($value[$primaryLocale])) {
+				// Check if the parameter is in the default site locale
 				$localizedParams[$name] = $value[$primaryLocale];
 			} else {
-				$localizedParams[$name] = array_shift($value);
+				// Otherwise, iterate over all supported locales and return the first match
+				$locales = Locale::getSupportedLocales();
+				foreach ($locales as $localeKey) {
+					if (isset($value[$localeKey])) {
+						$localizedParams[$name] = $value[$localeKey];
+					}
+				}
 			}
 		}
 
@@ -230,11 +243,9 @@ class PKPNotificationManager {
 	 * @return Notification object
 	 */
 	function createNotification(&$request, $userId, $notificationType, $contextId = null, $assocType = null, $assocId = null, $level = NOTIFICATION_LEVEL_NORMAL, $params = null) {
-		$contextId = $contextId? (int) $contextId: 0;
-
 		// Get set of notifications user does not want to be notified of
 		$notificationSubscriptionSettingsDao =& DAORegistry::getDAO('NotificationSubscriptionSettingsDAO');
-		$blockedNotifications = $notificationSubscriptionSettingsDao->getNotificationSubscriptionSettings('blocked_notification', $userId, $contextId);
+		$blockedNotifications = $notificationSubscriptionSettingsDao->getNotificationSubscriptionSettings('blocked_notification', $userId, (int) $contextId);
 
 		if(!in_array($notificationType, $blockedNotifications)) {
 			$notification = new Notification();
@@ -251,7 +262,7 @@ class PKPNotificationManager {
 			// Send notification emails
 			if ($notification->getLevel() != NOTIFICATION_LEVEL_TRIVIAL) {
 				$notificationSubscriptionSettingsDao =& DAORegistry::getDAO('NotificationSubscriptionSettingsDAO');
-				$notificationEmailSettings = $notificationSubscriptionSettingsDao->getNotificationSubscriptionSettings('emailed_notification', $userId, $contextId);
+				$notificationEmailSettings = $notificationSubscriptionSettingsDao->getNotificationSubscriptionSettings('emailed_notification', $userId, (int) $contextId);
 
 				if(in_array($notificationType, $notificationEmailSettings)) {
 					$this->sendNotificationEmail($request, $notification);
