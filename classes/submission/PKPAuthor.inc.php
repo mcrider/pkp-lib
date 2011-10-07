@@ -223,6 +223,29 @@ class PKPAuthor extends DataObject {
 	}
 
 	/**
+	 * Get mailing address
+	 * @return string
+	 */
+	function getAddress() {
+		return $this->getData('address');
+	}
+
+	/**
+	 * Get the localized address for this author
+	 */
+	function getLocalizedAddress() {
+		return $this->getLocalizedData('address');
+	}
+
+	/**
+	 * Set mailing address
+	 * @param $country string
+	 */
+	function setAddress($address) {
+		return $this->setData('address', $address);
+	}
+
+	/**
 	 * Get email address.
 	 * @return string
 	 */
