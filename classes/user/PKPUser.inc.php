@@ -378,23 +378,52 @@ class PKPUser extends DataObject {
 	}
 
 	/**
-	 * Get user reviewing interests.
-	 * @param $locale string
-	 * @return string
+	 * Get user reviewing interests. (Cached in memory for batch fetches.)
+	 * @param $asJson boolean Set to true to return JSON formatted string of keywords (for JS ingestion)
+	 * @param $asString boolean Set to true to return interests as comma-separated string (for public display)
+	 * @return mixed
 	 */
-	function getInterests() {
+	function getInterests($asJson = false, $asFormattedString = false) {
+		static $interestsCache = array();
+		$interests = array();
+
 		$interestDao =& DAORegistry::getDAO('InterestDAO');
-		return implode(", ", $interestDao->getInterests($this->getId()));
+		$interestEntryDao =& DAORegistry::getDAO('InterestEntryDAO');
+		$controlledVocab = $interestDao->build();
+		foreach($interestDao->getUserInterestIds($this->getId()) as $interestEntryId) {
+			if (!isset($interestsCache[$interestEntryId])) {
+				$interestsCache[$interestEntryId] = $interestEntryDao->getById(
+					$interestEntryId,
+					$controlledVocab->getId()
+				);
+			}
+			if (isset($interestsCache[$interestEntryId])) {
+				$interests[] = $interestsCache[$interestEntryId]->getInterest();
+			}
+		}
+
+		if ($asJson) {
+			import('lib.pkp.classes.core.JSON');
+			$json = new JSON();
+			return $json->json_encode($interests);
+		}
+
+		if ($asFormattedString) {
+			return implode(', ', $interests);
+		}
+
+		return $interests;
 	}
 
 	/**
 	 * Set user reviewing interests.
-	 * @param $interests string
+	 * @param $interests mixed
 	 * @param $locale string
 	 */
 	function setInterests($interests) {
 		$interestDao =& DAORegistry::getDAO('InterestDAO');
-		$interestDao->insertInterests(explode(",", $interests), $this->getId(), true);
+		$interests = is_array($interests) ? $interests : (empty($interests) ? null : explode(",", $interests));
+		$interestDao->setUserInterests($interests, $this->getId());
 	}
 
 	/**

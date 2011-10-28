@@ -77,16 +77,16 @@
 			}
 		});
 
-		// MC Need to unescape the data going into the autocomplete widget
+		// MC Need to escape the data going into the autocomplete widget
 		var autoCompleteSource = new Array();
 		$.each(options.availableTags, function() {
-			autoCompleteSource.push(unescapeHTML(this.toString()));
+			autoCompleteSource.push(escapeHTML(this.toString()));
 		});
 		tag_input.autocomplete({
 			source: autoCompleteSource,
 			select: function(event,ui){
 				if (is_new (ui.item.value)) {
-					create_choice (ui.item.value);
+					create_choice (unescapeHTML(ui.item.value));
 				}
 				// Cleaning the input.
 				tag_input.val("");
@@ -100,15 +100,14 @@
 			var is_new = true;
 			tag_input.parents("ul").children(".tagit-choice").each(function(i){
 				n = $(this).children("input").val();
-				if (value == n) {
+				if (urlEncode(value) == n) {
 					is_new = false;
+					return false; // Breaks us out of the each statement
 				}
 			})
 			return is_new;
 		}
 		function create_choice (value, loadingList){
-			if(loadingList == true) value = unescapeHTML(value.toString());  // Unescape HTML encodings (e.g. &lt;)
-			value = unescape(value);	// Unescape JS encodings (e.g. %3E;)
 			var el = "";
 			el  = "<li class=\"tagit-choice\">\n";
 			el += escapeHTML(value.toString()) + "\n";

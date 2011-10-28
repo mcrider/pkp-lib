@@ -51,7 +51,7 @@ class ControlledVocabEntryDAO extends DAO {
 	 * @param $locale string
 	 * @return ControlledVocabEntry
 	 */
-	function getBySetting($settingValue, $symbolic, $assocType, $assocId, $settingName = 'name', $locale = '') {
+	function getBySetting($settingValue, $symbolic, $assocType = 0, $assocId = 0, $settingName = 'name', $locale = '') {
 		$result =& $this->retrieve(
 			'SELECT cve.*
 			 FROM controlled_vocabs cv
