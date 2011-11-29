@@ -372,58 +372,25 @@ class PKPUser extends DataObject {
 		return $this->setData('biography', $biography, $locale);
 	}
 
+	/**
+	 * Get the user's reviewing interests as an array. DEPRECATED in favour of direct interaction with the InterestManager.
+	 * @return array
+	 */
 	function getUserInterests() {
 		if (Config::getVar('debug', 'deprecation_warnings')) trigger_error('Deprecated function.');
-		return $this->getInterests();
+		import('lib.pkp.classes.user.InterestManager');
+		$interestManager = new InterestManager();
+		return $interestManager->getInterestsForUser($this);
 	}
 
 	/**
-	 * Get user reviewing interests. (Cached in memory for batch fetches.)
-	 * @param $asJson boolean Set to true to return JSON formatted string of keywords (for JS ingestion)
-	 * @param $asString boolean Set to true to return interests as comma-separated string (for public display)
-	 * @return mixed
+	 * Get the user's interests displayed as a comma-separated string
+	 * @return string
 	 */
-	function getInterests($asJson = false, $asFormattedString = false) {
-		static $interestsCache = array();
-		$interests = array();
-
-		$interestDao =& DAORegistry::getDAO('InterestDAO');
-		$interestEntryDao =& DAORegistry::getDAO('InterestEntryDAO');
-		$controlledVocab = $interestDao->build();
-		foreach($interestDao->getUserInterestIds($this->getId()) as $interestEntryId) {
-			if (!isset($interestsCache[$interestEntryId])) {
-				$interestsCache[$interestEntryId] = $interestEntryDao->getById(
-					$interestEntryId,
-					$controlledVocab->getId()
-				);
-			}
-			if (isset($interestsCache[$interestEntryId])) {
-				$interests[] = $interestsCache[$interestEntryId]->getInterest();
-			}
-		}
-
-		if ($asJson) {
-			import('lib.pkp.classes.core.JSON');
-			$json = new JSON();
-			return $json->json_encode($interests);
-		}
-
-		if ($asFormattedString) {
-			return implode(', ', $interests);
-		}
-
-		return $interests;
-	}
-
-	/**
-	 * Set user reviewing interests.
-	 * @param $interests mixed
-	 * @param $locale string
-	 */
-	function setInterests($interests) {
-		$interestDao =& DAORegistry::getDAO('InterestDAO');
-		$interests = is_array($interests) ? $interests : (empty($interests) ? null : explode(",", $interests));
-		$interestDao->setUserInterests($interests, $this->getId());
+	function getInterestString() {
+		import('lib.pkp.classes.user.InterestManager');
+		$interestManager = new InterestManager();
+		return $interestManager->getInterestsForUserAsFormattedString($this);
 	}
 
 	/**

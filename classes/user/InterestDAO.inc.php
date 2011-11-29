@@ -50,12 +50,11 @@ class InterestDAO extends ControlledVocabDAO {
 	}
 
 	/**
-	 * Get an array or JSON-formatted string of all user's interests
-	 * @param $asJson boolean Returns a comma-separated list of keywords if true
+	 * Get all user's interests
 	 * @param $rangeInfo object DBResultRange (optional)
-	 * @return mixed
+	 * @return object
 	 */
-	function getAllInterests($asJson = false, $rangeInfo = null) {
+	function getAllInterests($rangeInfo = null) {
 		$controlledVocab = $this->build();
 		$interestEntryDao =& DAORegistry::getDAO('InterestEntryDAO');
 		$iterator = $interestEntryDao->getByControlledVocabId($controlledVocab->getId(), $rangeInfo);
@@ -63,14 +62,6 @@ class InterestDAO extends ControlledVocabDAO {
 		// Sort by name.
 		$interests = $iterator->toArray();
 		usort($interests, create_function('$s1, $s2', 'return strcmp($s1->getInterest(), $s2->getInterest());'));
-
-		if ($asJson) {
-			$returner = array();
-			foreach($interests as $interest) $returner[] = $interest->getInterest();
-			import('lib.pkp.classes.core.JSON');
-			$json = new JSON();
-			return $json->json_encode($returner);
-		}
 
 		// Turn back into an iterator.
 		import('lib.pkp.classes.core.ArrayItemIterator');
