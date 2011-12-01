@@ -426,8 +426,8 @@ class CitationForm extends Form {
 			$author =& $assocObject->getUser();
 			$user =& $request->getUser();
 			$emailParams = array(
-				'authorFirstName' => strip_tags($author->getFirstName()),
-				'authorLastName' => strip_tags($author->getLastName()),
+				'authorFirstName' => strip_tags($author->getLocalizedFirstName()),
+				'authorLastName' => strip_tags($author->getLocalizedLastName()),
 				'userFirstName' => strip_tags($user->getFirstName()),
 				'userLastName' => strip_tags($user->getLastName()),
 				'articleTitle' => strip_tags($assocObject->getLocalizedTitle()),
