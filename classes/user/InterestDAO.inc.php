@@ -51,13 +51,14 @@ class InterestDAO extends ControlledVocabDAO {
 
 	/**
 	 * Get all user's interests
+	 * @param $filter string (optional)
 	 * @param $rangeInfo object DBResultRange (optional)
 	 * @return object
 	 */
-	function getAllInterests($rangeInfo = null) {
+	function getAllInterests($filter = null, $rangeInfo = null) {
 		$controlledVocab = $this->build();
 		$interestEntryDao =& DAORegistry::getDAO('InterestEntryDAO');
-		$iterator = $interestEntryDao->getByControlledVocabId($controlledVocab->getId(), $rangeInfo);
+		$iterator = $interestEntryDao->getByControlledVocabId($controlledVocab->getId(), $rangeInfo, $filter);
 
 		// Sort by name.
 		$interests = $iterator->toArray();

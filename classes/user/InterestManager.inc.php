@@ -23,9 +23,9 @@ class InterestManager {
 	 * Get all interests for all users in the system
 	 * @return array
 	 */
-	function getAllInterests() {
+	function getAllInterests($filter = null) {
 		$interestDao =& DAORegistry::getDAO('InterestDAO'); /* @var $interestDao InterestDAO */
-		$interests = $interestDao->getAllInterests();
+		$interests = $interestDao->getAllInterests($filter);
 
 		$interestReturner = array();
 		while($interest =& $interests->next()) {

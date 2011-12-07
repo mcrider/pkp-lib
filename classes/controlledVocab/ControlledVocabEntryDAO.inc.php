@@ -160,10 +160,18 @@ class ControlledVocabEntryDAO extends DAO {
 	 * @param $controlledVocabId int
 	 * @return object DAOResultFactory containing matching CVE objects
 	 */
-	function getByControlledVocabId($controlledVocabId, $rangeInfo = null) {
+	function getByControlledVocabId($controlledVocabId, $rangeInfo = null, $filter = null) {
+		$params = array((int) $controlledVocabId);
+		if (!empty($filter)) $params[] = "%$filter%";
+
 		$result =& $this->retrieveRange(
-			'SELECT * FROM controlled_vocab_entries WHERE controlled_vocab_id = ? ORDER BY seq',
-			array((int) $controlledVocabId),
+			'SELECT *
+			 FROM controlled_vocab_entries cve '.
+			 (!empty($filter) ? 'INNER JOIN controlled_vocab_entry_settings cves ON cve.controlled_vocab_entry_id = cves.controlled_vocab_entry_id ' : '') .
+			'WHERE controlled_vocab_id = ? ' .
+			 (!empty($filter) ? 'AND cves.setting_value LIKE ? ' : '') .
+			'ORDER BY seq',
+			$params,
 			$rangeInfo
 		);
 
