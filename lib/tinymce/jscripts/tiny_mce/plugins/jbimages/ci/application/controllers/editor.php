@@ -160,6 +160,54 @@ class Editor extends CI_Controller {
 		}
 	}
 
+	/* Display a list of images in the upload directory and allow them to be deleted */
+
+	function listImages($lang='english') {
+		$this->_lang_set($lang);
+		if($this->config->item('list_images', 'uploader_settings')) {
+			$this->load->helper('file');
+			$imageDir = $this->config->item('upload_path', 'uploader_settings');
+			$imageUrl = $this->config->item('img_path', 'uploader_settings');
+			
+			$files = get_dir_file_info($imageDir);
+			if(!empty($files)) {
+				$fileList = array();
+				foreach($files as $file) {
+					$image = array('img_path' => $imageUrl . '/' . $file['name'],
+									'name' => $file['name'],
+									'size' => round(((int)$file['size'] / 1024), 2));
+					$fileList[] = $image;
+				}
+
+				$data['files'] = $fileList;	
+			} else $data['files'] = null;
+			
+			$this->load->view('file_list', $data);
+		} else $this->load->view('no_file_list');
+	}
+
+	/* Display a list of images in the upload directory and allow them to be deleted */
+	function deleteImage($imageName, $lang='english') {
+		$this->_lang_set($lang);
+		if($this->config->item('list_images', 'uploader_settings')) {
+			$this->load->helper('file');
+			$imageDir = $this->config->item('upload_path', 'uploader_settings');
+			$imageUrl = $this->config->item('img_path', 'uploader_settings');
+			
+			// Make sure image exists in upload path
+			$imagePath = $imageDir . '/' . basename($imageName);
+
+			$file = get_file_info($imagePath);
+			if($file) {
+				unlink($imagePath);
+			} else {
+				show_error('File does not exist');
+			}
+
+			$this->listImages();
+		} else $this->load->view('no_file_list');
+	}
+
 	/* Blank Page (default source for iframe) */
 
 	public function blank($lang='english')
