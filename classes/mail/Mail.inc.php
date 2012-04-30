@@ -346,14 +346,57 @@ class Mail extends DataObject {
 			$this->addHeader('Content-Type', $this->getContentType());
 		} elseif ($this->hasAttachments()) {
 			// Only add MIME headers if sending an attachment
-			$mimeBoundary = '==boundary_'.md5(microtime());
+			$mixedBoundary = 'mixedBoundary_'.md5(microtime());
+			$altBoundary = 'altBoundary_'.md5(microtime());
+
+			// Create a multipart/alternative email
+			$multiPartBody = '--'.$mixedBoundary.MAIL_EOL;
+			$multiPartBody .= 'Content-Type: multipart/alternative; boundary="'.$altBoundary.'"'.MAIL_EOL.MAIL_EOL;
+			$multiPartBody .= '--'.$altBoundary.MAIL_EOL;
+			$multiPartBody .= 'Content-Type: text/plain; charset='.Config::getVar('i18n', 'client_charset').MAIL_EOL;
+			$multiPartBody .= 'Content-Transfer-Encoding: quoted-printable'.MAIL_EOL.MAIL_EOL;
+			$multiPartBody .= strip_tags(preg_replace('#<br\s*/?>#i', "\n", $body)).MAIL_EOL.MAIL_EOL;
+			$multiPartBody .= '--'.$altBoundary.MAIL_EOL;
+			$multiPartBody .= 'Content-Type: text/html; charset='.Config::getVar('i18n', 'client_charset').MAIL_EOL;
+			$multiPartBody .= 'Content-Transfer-Encoding: quoted-printable'.MAIL_EOL.MAIL_EOL;
+			$multiPartBody .= $body.MAIL_EOL;
+			$multiPartBody .= '--'.$altBoundary.'--'.MAIL_EOL.MAIL_EOL;
+
+			// Add the body
+			//$mailBody = wordwrap($multiPartBody, MAIL_WRAP, MAIL_EOL).MAIL_EOL.MAIL_EOL;
+			$mailBody = $multiPartBody;
+
+			// Add the attachments
+			$attachments = $this->getAttachments();
+			foreach ($attachments as $attachment) {
+				$mailBody .= '--'.$mixedBoundary.MAIL_EOL;
+				$mailBody .= 'Content-Type: '.$attachment['content-type'].'; name="'.str_replace('"', '', $attachment['filename']).'"'.MAIL_EOL;
+				$mailBody .= 'Content-transfer-encoding: base64'.MAIL_EOL;
+				$mailBody .= 'Content-disposition: '.$attachment['disposition'].MAIL_EOL.MAIL_EOL;
+				$mailBody .= $attachment['content'].MAIL_EOL.MAIL_EOL;
+			}
+
+			$mailBody .= '--'.$mixedBoundary.'--';
 
 			/* Add MIME-Version and Content-Type as headers. */
-			$this->addHeader('MIME-Version', '1.0');
-			$this->addHeader('Content-Type', 'multipart/mixed; boundary="'.$mimeBoundary.'"');
+			$this->addHeader('Content-Type', 'multipart/mixed; boundary="'.$mixedBoundary.'"');
 
 		} else {
-			$this->addHeader('Content-Type', 'text/plain; charset="'.Config::getVar('i18n', 'client_charset').'"');
+			$mimeBoundary = 'boundary_' . md5(microtime());
+
+			// Create a multipart/alternative email
+			$multiPartBody = '--'.$mimeBoundary.MAIL_EOL;
+			$multiPartBody .= 'Content-Type: text/plain; charset="'.Config::getVar('i18n', 'client_charset').'"'.MAIL_EOL;
+			$multiPartBody .= 'Content-Transfer-Encoding: quoted-printable'.MAIL_EOL.MAIL_EOL;
+			$multiPartBody .= strip_tags(preg_replace('#<br\s*/?>#i', "\n", $body)).MAIL_EOL.MAIL_EOL;
+			$multiPartBody .= '--'.$mimeBoundary.MAIL_EOL;
+			$multiPartBody .= 'Content-Type: text/html; charset="'.Config::getVar('i18n', 'client_charset').'"'.MAIL_EOL;
+			$multiPartBody .= 'Content-Transfer-Encoding: quoted-printable'.MAIL_EOL.MAIL_EOL;
+			$multiPartBody .= $body;
+
+			$body = $multiPartBody;
+
+			$this->addHeader('Content-Type', 'multipart/alternative; boundary='.$mimeBoundary.'; charset="'.Config::getVar('i18n', 'client_charset').'"');
 		}
 
 		$this->addHeader('X-Mailer', 'Public Knowledge Project Suite v2');
@@ -386,27 +429,8 @@ class Mail extends DataObject {
 			$headers .= $header['name'].': '. str_replace(array("\r", "\n"), '', $header['content']);
 		}
 
-		if ($this->hasAttachments()) {
+		if (!$this->hasAttachments()) {
 			// Add the body
-			$mailBody = 'This message is in MIME format and requires a MIME-capable mail client to view.'.MAIL_EOL.MAIL_EOL;
-			$mailBody .= '--'.$mimeBoundary.MAIL_EOL;
-			$mailBody .= sprintf('Content-Type: text/plain; charset=%s', Config::getVar('i18n', 'client_charset')) . MAIL_EOL.MAIL_EOL;
-			$mailBody .= wordwrap($body, MAIL_WRAP, MAIL_EOL).MAIL_EOL.MAIL_EOL;
-
-			// Add the attachments
-			$attachments = $this->getAttachments();
-			foreach ($attachments as $attachment) {
-				$mailBody .= '--'.$mimeBoundary.MAIL_EOL;
-				$mailBody .= 'Content-Type: '.$attachment['content-type'].'; name="'.str_replace('"', '', $attachment['filename']).'"'.MAIL_EOL;
-				$mailBody .= 'Content-transfer-encoding: base64'.MAIL_EOL;
-				$mailBody .= 'Content-disposition: '.$attachment['disposition'].MAIL_EOL.MAIL_EOL;
-				$mailBody .= $attachment['content'].MAIL_EOL.MAIL_EOL;
-			}
-
-			$mailBody .= '--'.$mimeBoundary.'--';
-
-		} else {
-			// Just add the body
 			$mailBody = wordwrap($body, MAIL_WRAP, MAIL_EOL);
 		}
 
