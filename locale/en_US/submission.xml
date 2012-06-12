@@ -371,7 +371,8 @@
 	<message key="submission.submissionHistory">Submission History</message>
 	<message key="submission.submissionManuscript">Submission Manuscript</message>
 	<message key="submission.submissionReview">Submission Review</message>
-	<message key="submission.submitter">Submitter</message>
+	<message key="submission.submitter">Submitters</message>
+	<message key="submission.addSubmitter">Add a Submitter</message>
 	<message key="submission.summary">Summary</message>
 	<message key="submission.supplementaryFiles">Supplementary Files</message>
 	<message key="submission.supportingAgencies">Supporting Agencies</message>
